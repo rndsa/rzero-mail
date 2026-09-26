@@ -1,0 +1,42 @@
+name = "rzero-mail"
+main = "src/index.ts"
+compatibility_date = "2025-06-01"
+
+workers_dev = true
+
+# ---- Routes / Custom Domain (Optional) ----
+# routes = [
+#   { pattern = "yourdomain.com", custom_domain = true }
+# ]
+
+# ---- D1 Database ----
+# Create database via: npx wrangler d1 create rzero-db
+# Paste your database_id below:
+[[d1_databases]]
+binding = "DB"
+database_name = "rzero-db"
+database_id = "YOUR_D1_DATABASE_ID_HERE"
+
+# ---- Email Worker (Cloudflare Email Routing) ----
+[email]
+action = "process"
+
+# ---- Environment Variables ----
+[vars]
+APP_NAME = "RZero Mail"
+MAIL_DOMAIN = "yourdomain.com"
+WEB_HOST = "yourdomain.com"
+
+# Admin 3-Step Auth Credentials (Ganti dengan kredensial rahasia kamu)
+ADMIN_USERNAME = "admin"
+ADMIN_PASSWORD = "change_this_admin_password"
+ADMIN_V2L_KEY = "change_this_secondary_key"
+ADMIN_SECRET = "change_this_jwt_hmac_secret_salt"
+
+# ---- Static Assets (Neo-Brutalism Web Frontend) ----
+[assets]
+directory = "./src/web"
+
+# ---- Observability ----
+[observability]
+enabled = true
