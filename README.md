@@ -15,6 +15,32 @@ Unlike traditional disposable email systems that rely on heavy webmail UIs and c
 
 ---
 
+## 🎯 Untuk Apa Project Ini Berjalan?
+
+Layanan temporary email publik yang ada saat ini seringkali memiliki kendala mendasar:
+* **UI Lambat & Iklan Berlebihan**: Webmail tradisional dipenuhi skrip pelacak dan iklan pop-up yang memperlambat browser.
+* **Akses API Terkunci / Berbayar**: Sebagian besar penyedia mengunci akses API atau mewajibkan payload POST dan auth token rumit untuk sekadar membaca pesan masuk.
+* **Pemeliharaan Mail Server Konvensional yang Rumit**: Mengelola server Postfix/Dovecot mandiri membutuhkan konfigurasi IP reputasi, pembersihan storage rutin, dan rentan terhadap serangan DDoS.
+
+**RZero Mail** dirancang sebagai solusi infrastruktur email sementara modern:
+1. **Serverless Edge-Native**: Menggunakan Cloudflare Workers & Anycast Email Routing, memindahkan pemrosesan email langsung ke edge network global tanpa server fisik mail.
+2. **Developer-First (100% GET REST API)**: Seluruh interaksi (generate email, custom inbox, list pesan, ambil OTP) dapat dilakukan via HTTP GET murni—sangat ramah untuk bot Telegram, Discord, cURL, maupun CLI.
+3. **Ekstraksi OTP Otomatis**: Dilengkapi regex engine yang langsung membedah dan mengisolasi 4–8 digit kode verifikasi dari isi email ke dalam field JSON terpisah.
+4. **Multi-Domain Resiliency**: Mendukung puluhan custom domain dengan pengecekan MX Dual-DoH (Cloudflare + Google DoH) dan auto-resolver Host DNS.
+
+---
+
+## ⚖️ Kelebihan & Kekurangan
+
+| Kategori | Kelebihan (Pros) | Kekurangan (Cons) |
+|---|---|---|
+| **Kecepatan & Latensi** | **Anycast Edge Speed (<20ms)**: Berjalan di ratusan data center Cloudflare global; penerimaan email dan response API terjadi seketika tanpa jeda antrean server konvensional. | **Inbound Only**: Dikhususkan untuk penerimaan email & verifikasi akun; tidak mendukung fitur kirim email keluar (outbound SMTP). |
+| **Integrasi Developer** | **100% GET Method REST API**: Tidak memerlukan API key untuk endpoint publik dan tanpa payload JSON rumit. Cukup panggil URL via browser, bot, atau script terminal. | **Ketergantungan Ekosistem Cloudflare**: Terikat pada Cloudflare Workers, Cloudflare D1, dan Email Routing; butuh adaptasi jika ingin dipindahkan ke VPS biasa. |
+| **Biaya & Pemeliharaan** | **Zero Server Maintenance**: Tanpa perlu konfigurasi Postfix/Dovecot atau manajemen storage disk VPS; otomatis auto-scale di infrastruktur Cloudflare. | **Batas Concurrent Write D1**: SQLite D1 memiliki batas throughput write tertentu saat menghadapi lonjakan masif ribuan email masuk secara bersamaan dalam 1 detik. |
+| **UI & Keamanan** | **Neo-Brutalism & Triple-Lock Admin**: Tampilan responsif super ringan tanpa framework berat, serta konsol admin terlindungi autentikasi berlapis dan Dual-DoH validator. | **Retensi Temporer**: Data pesan dirancang untuk penggunaan sementara (disposable) dan tidak ditujukan sebagai arsip surat elektronik permanen. |
+
+---
+
 ## 🌐 Live Demo & Previews
 
 * **Live Webmail Production**: [https://rzmail.my.id/](https://rzmail.my.id/)
