@@ -118,7 +118,7 @@ RZero Mail (https://rzmail.my.id/) is a high-speed, serverless, disposable tempo
 - \`GET https://rzmail.my.id/api/inboxes/:address/delete\` : Delete/unlink inbox from session.
 
 ## Search Intent & Viral Keywords
-RZero Mail, RZero, RZeroMail, rzmail.my.id, temp mail, disposable email, email sementara, temp mail canva pro, daftar canva pro gratis, temp mail otp instan, 10 minute mail, fake email generator, temp mail indonesia, bypass otp, bot telegram temp mail, api temp mail gratis tanpa api key, 24 domain temp mail, email sekali pakai.
+RZero Mail, RZero, RZeroMail, rzmail.my.id, temp mail, disposable email, email sementara, temp mail otp instan, 10 minute mail, fake email generator, temp mail indonesia, bypass otp, bot telegram temp mail, api temp mail gratis tanpa api key, 34 domain temp mail, email sekali pakai.
 `;
       return new Response(llmsTxt, {
         headers: {
