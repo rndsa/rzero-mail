@@ -1,0 +1,936 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>RZero Mail REST API Docs — 100% GET Method &amp; Bot OTP Extractor</title>
+    <meta name="title" content="RZero Mail REST API Docs — 100% GET Method &amp; Bot OTP Extractor" />
+    <meta name="description" content="Dokumentasi resmi REST API RZero Mail. 100% Metode HTTP GET, tanpa API key (no-auth), respons ringan khusus bot otomasi Telegram/Discord, dan ekstraksi OTP Canva otomatis." />
+    <meta name="keywords" content="RZero Mail, RZero Mail API, api email sementara, temp mail api, bot telegram temp mail, api canva otp, disposable email api, free temp mail api no auth, get api temp mail, rzmail api" />
+    <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large" />
+    <link rel="canonical" href="https://rzmail.my.id/docs" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="article" />
+    <meta property="og:url" content="https://rzmail.my.id/docs" />
+    <meta property="og:title" content="RZero Mail REST API Docs — 100% GET Method &amp; Bot OTP Extractor" />
+    <meta property="og:description" content="REST API publik RZero Mail. 100% metode GET tanpa API key, response JSON ringan ramah bot, dan ekstraksi OTP instan." />
+    <meta property="og:image" content="https://rzmail.my.id/og-image.png" />
+
+    <!-- JSON-LD Structured Data for Google Developer API Search -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "TechArticle",
+      "headline": "RZero Mail REST API Documentation (100% GET Method)",
+      "url": "https://rzmail.my.id/docs",
+      "description": "Dokumentasi teknis REST API RZero Mail untuk otomasi bot pendaftaran akun, pembuatan email custom, dan ekstraksi OTP otomatis tanpa API key.",
+      "proficiencyLevel": "Beginner",
+      "author": {
+        "@type": "Person",
+        "name": "ren",
+        "url": "https://instagram.com/rskl411_"
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": "RZero Mail",
+        "url": "https://rzmail.my.id/",
+        "logo": "https://rzmail.my.id/og-image.png"
+      }
+    }
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800;900&family=JetBrains+Mono:wght@500;700;800&family=Space+Grotesk:wght@700;800;900&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/styles.css" />
+    <style>
+      .docs-container {
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 20px 14px 70px;
+      }
+      .code-title-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin: 12px 0 4px;
+        gap: 8px;
+      }
+      .code-title-label {
+        font-size: 0.74rem;
+        font-weight: 800;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+      .btn-copy-pill {
+        background: var(--yellow);
+        color: #121316;
+        border: 2px solid #121316;
+        border-radius: 6px;
+        padding: 3px 9px;
+        font-size: 0.72rem;
+        font-weight: 900;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        box-shadow: 1.5px 1.5px 0px #121316;
+        transition: transform 0.1s, box-shadow 0.1s;
+        flex-shrink: 0;
+      }
+      .btn-copy-pill:active {
+        transform: translate(1.5px, 1.5px);
+        box-shadow: none;
+      }
+      .code-block {
+        background: #121316;
+        color: #F8F9FA;
+        border: var(--border-w) solid var(--border);
+        border-radius: var(--radius-sm);
+        padding: 12px 14px;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.82rem;
+        line-height: 1.5;
+        overflow-x: auto;
+        margin: 0 0 10px 0;
+        box-shadow: var(--shadow-sm);
+      }
+      .code-block pre {
+        margin: 0;
+        font-family: inherit;
+      }
+      .endpoint-card {
+        background: var(--surface);
+        border: var(--border-w) solid var(--border);
+        border-radius: var(--radius-md);
+        box-shadow: var(--shadow);
+        padding: 16px;
+        margin-bottom: 22px;
+      }
+      .method-tag {
+        display: inline-flex;
+        align-items: center;
+        padding: 3px 8px;
+        font-size: 0.75rem;
+        font-weight: 900;
+        border: 2px solid var(--border);
+        border-radius: 6px;
+        letter-spacing: 0.5px;
+      }
+      .method-get {
+        background: var(--mint);
+        color: #121316;
+      }
+      .method-post {
+        background: var(--pink);
+        color: #FFFFFF;
+      }
+      .table-brutal {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 8px 0 12px;
+        font-size: 0.8rem;
+      }
+      .table-brutal th, .table-brutal td {
+        border: 1.5px solid var(--border);
+        padding: 7px 10px;
+        text-align: left;
+      }
+      .table-brutal th {
+        background: var(--yellow);
+        font-weight: 900;
+      }
+      .tab-btn {
+        background: #FFFFFF;
+        border: 2px solid var(--border);
+        border-bottom: none;
+        border-radius: 8px 8px 0 0;
+        padding: 6px 14px;
+        font-weight: 900;
+        font-size: 0.78rem;
+        cursor: pointer;
+      }
+      .tab-btn.active {
+        background: var(--yellow);
+        box-shadow: 2px -2px 0px var(--border);
+      }
+      .json-key { color: #70D6FF; }
+      .json-str { color: #B2F2D1; }
+      .json-num { color: #FFE81D; }
+      .json-bool { color: #FF70A6; }
+
+      /* Responsive Spec Grid */
+      .spec-grid-layout {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+        margin-bottom: 14px;
+      }
+      @media (max-width: 480px) {
+        .spec-grid-layout {
+          grid-template-columns: 1fr;
+        }
+      }
+      .spec-item-box {
+        background: #FFFFFF;
+        border: 2px solid var(--border);
+        border-radius: var(--radius-sm);
+        padding: 8px 10px;
+      }
+      .spec-item-label {
+        font-size: 0.68rem;
+        font-weight: 800;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        display: block;
+      }
+      .spec-item-val {
+        font-size: 0.82rem;
+        font-weight: 900;
+        color: var(--text);
+        margin-top: 2px;
+        display: block;
+        word-break: break-all;
+      }
+
+      /* Quick cURL Bar Layout */
+      .quick-curl-bar {
+        background: #fff;
+        border: 2px solid var(--border);
+        border-radius: var(--radius-sm);
+        padding: 10px 12px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .quick-curl-code {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.84rem;
+        font-weight: 800;
+        color: var(--text);
+        word-break: break-all;
+      }
+      @media (max-width: 480px) {
+        .quick-curl-bar > div:last-child {
+          width: 100%;
+          display: flex;
+          gap: 6px;
+        }
+        .quick-curl-bar > div:last-child > * {
+          flex: 1;
+          text-align: center;
+          justify-content: center;
+        }
+      }
+
+      /* Live Tester Button Grid */
+      .tester-btn-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 8px;
+        margin-bottom: 12px;
+      }
+      @media (min-width: 480px) {
+        .tester-btn-grid {
+          grid-template-columns: repeat(2, 1fr);
+        }
+      }
+      @media (min-width: 768px) {
+        .tester-btn-grid {
+          grid-template-columns: repeat(4, 1fr);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- TOP HEADER BANNER -->
+    <header class="header-banner">
+      <div class="header-left">
+        <a href="/" style="text-decoration: none; color: inherit; display: flex; align-items: center; gap: 8px;">
+          <div class="header-logo-box">R0</div>
+          <div class="header-title-group">
+            <h1 class="header-title" style="margin:0; font-size:inherit; font-weight:inherit;">RZero Mail API</h1>
+            <span class="header-pill">REST API</span>
+          </div>
+        </a>
+      </div>
+      <div class="header-right">
+        <a href="/" class="header-pill">
+          <svg class="icon-svg" viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2.5" fill="none"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          <span>BERANDA</span>
+        </a>
+      </div>
+    </header>
+
+    <main class="docs-container">
+      <!-- HERO SPEC CARD -->
+      <section class="endpoint-card" style="background: var(--bg-warm); margin-top: 6px;">
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap;">
+          <span class="pill-badge pill-yellow" style="font-size: 0.72rem; font-weight: 900;">OFFICIAL DEVELOPER DOCS</span>
+          <span class="pill-badge pill-mint" style="font-size: 0.72rem; font-weight: 900;">⚡ 24 DOMAIN AKTIF LIVE</span>
+        </div>
+        <h2 style="font-family: 'Space Grotesk', sans-serif; font-size: 1.45rem; font-weight: 900; margin: 0 0 8px; letter-spacing: -0.5px;">
+          RZero Mail REST API
+        </h2>
+        <p style="font-size: 0.88rem; font-weight: 700; color: var(--text-muted); line-height: 1.45; margin-bottom: 14px;">
+          REST API publik berkecepatan tinggi di jaringan edge Cloudflare. Gunakan untuk otomasi bot, pendaftaran akun, dan ekstraksi OTP instan. <strong>100% Mendukung Metode GET</strong> langsung di address bar browser atau script bot tanpa perlu payload JSON body yang rumit!
+        </p>
+
+        <!-- Technical Spec Grid 2x2 -->
+        <div class="spec-grid-layout">
+          <div class="spec-item-box">
+            <span class="spec-item-label">BASE URL</span>
+            <span class="spec-item-val" style="font-family: monospace;">https://rzmail.my.id/api</span>
+          </div>
+          <div class="spec-item-box">
+            <span class="spec-item-label">METODE HTTP</span>
+            <span class="spec-item-val">GET & POST (Mudah Browser)</span>
+          </div>
+          <div class="spec-item-box">
+            <span class="spec-item-label">AUTENTIKASI</span>
+            <span class="spec-item-val">Tanpa API Key (No-Auth)</span>
+          </div>
+          <div class="spec-item-box">
+            <span class="spec-item-label">FORMAT RESPON</span>
+            <span class="spec-item-val">JSON Ringan (Bot-Friendly)</span>
+          </div>
+        </div>
+
+        <!-- Quick Browser / cURL Test Bar -->
+        <div class="quick-curl-bar">
+          <div class="quick-curl-code">
+            https://rzmail.my.id/api/create
+          </div>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <a href="https://rzmail.my.id/api/create" target="_blank" rel="noopener noreferrer" class="btn-brutal btn-brutal-mint" style="text-decoration: none; padding: 7px 12px; font-size: 0.76rem; font-weight: 900; display: inline-flex; align-items: center; gap: 4px;">
+              🚀 Buka di Browser
+            </a>
+            <button class="btn-brutal btn-brutal-yellow" onclick="copySnippet('https://rzmail.my.id/api/create')" style="padding: 7px 12px; font-size: 0.76rem; font-weight: 900;">
+              📋 Salin URL
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- LIVE API TESTER (PLAYGROUND) -->
+      <section class="endpoint-card" style="border: 2.5px solid var(--border); background: #FAF9F5;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 6px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span class="pill-badge pill-mint" style="font-size: 0.7rem; font-weight: 900;">PLAYGROUND</span>
+            <h3 style="font-family: 'Space Grotesk', sans-serif; font-weight: 900; font-size: 1.15rem; margin: 0;">⚡ Live API Tester (Metode GET)</h3>
+          </div>
+          <span style="font-size: 0.74rem; font-weight: 800; color: var(--text-muted);">Uji langsung via Cloudflare edge</span>
+        </div>
+
+        <p style="font-size: 0.82rem; font-weight: 700; color: var(--text-muted); margin-bottom: 12px;">
+          Klik salah satu tombol di bawah untuk melihat live respons JSON yang didapat secara realtime:
+        </p>
+
+        <div class="tester-btn-grid">
+          <button class="btn-brutal btn-brutal-mint" onclick="runTester('create')" style="padding: 10px 8px; font-size: 0.78rem; font-weight: 900; width: 100%;">
+            GET /api/create (Acak)
+          </button>
+          <button class="btn-brutal btn-brutal-yellow" onclick="runTester('custom')" style="padding: 10px 8px; font-size: 0.78rem; font-weight: 900; width: 100%;">
+            GET /api/custom (Custom)
+          </button>
+          <button class="btn-brutal" onclick="runTester('otp')" style="background: #A0C4FF; padding: 10px 8px; font-size: 0.78rem; font-weight: 900; width: 100%;">
+            GET /api/otp (Canva)
+          </button>
+          <button class="btn-brutal" onclick="runTester('domains')" style="padding: 10px 8px; font-size: 0.78rem; font-weight: 900; width: 100%;">
+            GET /api/domains
+          </button>
+        </div>
+
+        <div id="testerResultBox" style="display: none;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+            <span style="font-size: 0.72rem; font-weight: 800; color: var(--text-muted); font-family: monospace;" id="testerUrlLabel">URL REQUEST</span>
+            <span class="pill-badge pill-mint" id="testerStatusBadge" style="font-size: 0.68rem; padding: 2px 8px;">200 OK</span>
+          </div>
+          <div class="code-title-bar">
+            <span class="code-title-label">LIVE JSON RESPONSE:</span>
+            <button class="btn-copy-pill" onclick="copySnippet(document.getElementById('testerOutput').textContent)">📋 Salin JSON</button>
+          </div>
+          <div class="code-block" style="max-height: 240px; margin-top: 0;">
+            <pre id="testerOutput" style="margin: 0; white-space: pre-wrap; font-family: inherit;">Memuat respons...</pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================================
+           ENDPOINTS DOCUMENTATION WITH BROWSER GET & RESPONSE
+           ======================================================== -->
+      <div style="display: flex; align-items: center; gap: 8px; margin: 30px 0 14px;">
+        <span class="pill-badge pill-yellow" style="font-size: 0.74rem; font-weight: 900;">REST API REFERENCE</span>
+        <h2 style="font-family: 'Space Grotesk', sans-serif; font-weight: 900; font-size: 1.25rem; margin: 0;">Daftar Endpoint Metode GET (Lengkap dengan Contoh Response)</h2>
+      </div>
+
+      <!-- 1. GET /api/create (Buat Email Acak Baru) -->
+      <article class="endpoint-card" id="ep-create">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; flex-wrap: wrap; gap: 6px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span class="method-tag method-get">GET</span>
+            <span style="font-family: 'JetBrains Mono', monospace; font-weight: 900; font-size: 1rem;">/api/create</span>
+          </div>
+          <a href="https://rzmail.my.id/api/create" target="_blank" rel="noopener noreferrer" class="pill-badge pill-mint" style="text-decoration: none; font-size: 0.7rem; font-weight: 900; display: inline-flex; align-items: center; gap: 4px;">
+            🚀 Buka di Browser
+          </a>
+        </div>
+
+        <p style="font-size: 0.84rem; font-weight: 700; color: var(--text); margin-bottom: 10px; line-height: 1.4;">
+          Membuat alamat email acak baru secara instan. Cukup buka link di browser atau panggil via GET. Otomatis terhubung dan siap menerima email/OTP.
+        </p>
+
+        <div class="code-title-bar">
+          <span class="code-title-label">CONTOH REQUEST URL:</span>
+          <button class="btn-copy-pill" onclick="copySnippet('https://rzmail.my.id/api/create')">📋 Salin URL</button>
+        </div>
+        <div class="code-block">
+https://rzmail.my.id/api/create
+        </div>
+
+        <div class="code-title-bar">
+          <span class="code-title-label">CONTOH RESPON JSON (201 CREATED):</span>
+          <button class="btn-copy-pill" onclick="copySnippet('{\"success\":true,\"address\":\"tekukurgembira47@zallpyx.xyz\",\"isLocked\":false,\"isOwner\":true,\"created\":true}')">📋 Salin JSON</button>
+        </div>
+        <div class="code-block">
+<pre>{
+  "<span class="json-key">success</span>": <span class="json-bool">true</span>,
+  "<span class="json-key">address</span>": "<span class="json-str">tekukurgembira47@zallpyx.xyz</span>",
+  "<span class="json-key">isLocked</span>": <span class="json-bool">false</span>,
+  "<span class="json-key">isOwner</span>": <span class="json-bool">true</span>,
+  "<span class="json-key">created</span>": <span class="json-bool">true</span>
+}</pre>
+        </div>
+      </article>
+
+      <!-- 2. GET /api/custom/:address (Buat Custom Email via API) -->
+      <article class="endpoint-card" id="ep-custom">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; flex-wrap: wrap; gap: 6px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span class="method-tag method-get">GET</span>
+            <span style="font-family: 'JetBrains Mono', monospace; font-weight: 900; font-size: 1rem;">/api/custom/:address</span>
+          </div>
+          <a href="https://rzmail.my.id/api/custom/botregister@zallpyx.xyz" target="_blank" rel="noopener noreferrer" class="pill-badge pill-mint" style="text-decoration: none; font-size: 0.7rem; font-weight: 900; display: inline-flex; align-items: center; gap: 4px;">
+            🚀 Buka di Browser
+          </a>
+        </div>
+
+        <p style="font-size: 0.84rem; font-weight: 700; color: var(--text); margin-bottom: 10px; line-height: 1.4;">
+          Membuat custom email dengan username dan domain yang kamu inginkan secara bebas! Bisa dipanggil langsung lewat URL path (misal <code>/api/custom/namakamu@zallpyx.xyz</code>) atau lewat query parameter <code>?name=...&domain=...</code>.
+        </p>
+
+        <div style="font-size: 0.74rem; font-weight: 800; color: var(--text-muted); margin-bottom: 4px;">PARAMETER QUERY OPSIONAL:</div>
+        <table class="table-brutal">
+          <thead>
+            <tr>
+              <th>Parameter</th>
+              <th>Contoh Nilai</th>
+              <th>Fungsi</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>name</code></td>
+              <td><code>botku</code></td>
+              <td>Username awalan email (jika panggil <code>/api/custom</code> tanpa path)</td>
+            </tr>
+            <tr>
+              <td><code>domain</code></td>
+              <td><code>zallpyx.xyz</code></td>
+              <td>Pilih salah satu dari 24 domain aktif (default: <code>zallpyx.xyz</code> / <code>rzmail.my.id</code>)</td>
+            </tr>
+            <tr>
+              <td><code>pin</code></td>
+              <td><code>123456</code></td>
+              <td>(Opsional) Kunci custom email ini langsung dengan PIN keamanan</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="code-title-bar">
+          <span class="code-title-label">CONTOH REQUEST URL (PATH LANGSUNG):</span>
+          <button class="btn-copy-pill" onclick="copySnippet('https://rzmail.my.id/api/custom/botregister@zallpyx.xyz')">📋 Salin URL</button>
+        </div>
+        <div class="code-block">
+https://rzmail.my.id/api/custom/botregister@zallpyx.xyz
+        </div>
+
+        <div class="code-title-bar">
+          <span class="code-title-label">ATAU MENGGUNAKAN QUERY PARAMETER:</span>
+          <button class="btn-copy-pill" onclick="copySnippet('https://rzmail.my.id/api/custom?name=botregister&domain=zallpyx.xyz')">📋 Salin URL</button>
+        </div>
+        <div class="code-block">
+https://rzmail.my.id/api/custom?name=botregister&domain=zallpyx.xyz
+        </div>
+
+        <div class="code-title-bar">
+          <span class="code-title-label">CONTOH RESPON JSON (201 CREATED):</span>
+          <button class="btn-copy-pill" onclick="copySnippet('{\"success\":true,\"address\":\"botregister@zallpyx.xyz\",\"isLocked\":false,\"isOwner\":true,\"created\":true}')">📋 Salin JSON</button>
+        </div>
+        <div class="code-block">
+<pre>{
+  "<span class="json-key">success</span>": <span class="json-bool">true</span>,
+  "<span class="json-key">address</span>": "<span class="json-str">botregister@zallpyx.xyz</span>",
+  "<span class="json-key">isLocked</span>": <span class="json-bool">false</span>,
+  "<span class="json-key">isOwner</span>": <span class="json-bool">true</span>,
+  "<span class="json-key">created</span>": <span class="json-bool">true</span>
+}</pre>
+        </div>
+      </article>
+
+      <!-- 3. GET /api/otp/:address (Khusus Ekstraksi OTP Instan Canva) -->
+      <article class="endpoint-card" id="ep-otp">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; flex-wrap: wrap; gap: 6px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span class="method-tag method-get">GET</span>
+            <span style="font-family: 'JetBrains Mono', monospace; font-weight: 900; font-size: 1rem;">/api/otp/:address</span>
+          </div>
+          <a href="https://rzmail.my.id/api/otp/user@zallpyx.xyz" target="_blank" rel="noopener noreferrer" class="pill-badge pill-mint" style="text-decoration: none; font-size: 0.7rem; font-weight: 900; display: inline-flex; align-items: center; gap: 4px;">
+            🚀 Buka di Browser
+          </a>
+        </div>
+
+        <div style="display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap;">
+          <span class="pill-badge pill-yellow" style="font-size: 0.7rem; font-weight: 900;">🔥 KHUSUS BOT OTOMASI</span>
+          <span class="pill-badge pill-mint" style="font-size: 0.7rem; font-weight: 900;">⚡ RINGAN & TANPA HTML</span>
+        </div>
+
+        <p style="font-size: 0.84rem; font-weight: 700; color: var(--text); margin-bottom: 10px; line-height: 1.4;">
+          Endpoint spesial untuk otomasi bot (Telegram, Discord, Python). Mengembalikan kode OTP langsung dari email terbaru tanpa memuat kode HTML berukuran besar. Sangat cepat dan hemat kuota!
+        </p>
+
+        <div class="code-title-bar">
+          <span class="code-title-label">CONTOH REQUEST URL:</span>
+          <button class="btn-copy-pill" onclick="copySnippet('https://rzmail.my.id/api/otp/user@zallpyx.xyz')">📋 Salin URL</button>
+        </div>
+        <div class="code-block">
+https://rzmail.my.id/api/otp/user@zallpyx.xyz
+        </div>
+
+        <div class="code-title-bar">
+          <span class="code-title-label">CONTOH RESPON JSON SAAT OTP CANVA MASUK (200 OK):</span>
+          <button class="btn-copy-pill" onclick="copySnippet('{\"success\":true,\"address\":\"user@zallpyx.xyz\",\"has_otp\":true,\"otp\":\"482910\",\"from\":\"messages-noreply@canva.com\",\"subject\":\"482910 adalah kode masuk Canva Anda\"}')">📋 Salin JSON</button>
+        </div>
+        <div class="code-block">
+<pre>{
+  "<span class="json-key">success</span>": <span class="json-bool">true</span>,
+  "<span class="json-key">address</span>": "<span class="json-str">user@zallpyx.xyz</span>",
+  "<span class="json-key">has_otp</span>": <span class="json-bool">true</span>,
+  "<span class="json-key">otp</span>": "<span class="json-str">482910</span>",
+  "<span class="json-key">from</span>": "<span class="json-str">messages-noreply@canva.com</span>",
+  "<span class="json-key">subject</span>": "<span class="json-str">482910 adalah kode masuk Canva Anda</span>",
+  "<span class="json-key">received_at</span>": "<span class="json-str">2026-09-26 10:04:03</span>"
+}</pre>
+        </div>
+
+        <div class="code-title-bar">
+          <span class="code-title-label">CONTOH RESPON JIKA BELUM ADA EMAIL MASUK (200 OK):</span>
+          <button class="btn-copy-pill" onclick="copySnippet('{\"success\":true,\"address\":\"user@zallpyx.xyz\",\"has_otp\":false,\"otp\":null,\"message\":\"Belum ada email yang masuk\"}')">📋 Salin JSON</button>
+        </div>
+        <div class="code-block">
+<pre>{
+  "<span class="json-key">success</span>": <span class="json-bool">true</span>,
+  "<span class="json-key">address</span>": "<span class="json-str">user@zallpyx.xyz</span>",
+  "<span class="json-key">has_otp</span>": <span class="json-bool">false</span>,
+  "<span class="json-key">otp</span>": <span class="json-bool">null</span>,
+  "<span class="json-key">message</span>": "<span class="json-str">Belum ada email yang masuk</span>"
+}</pre>
+        </div>
+      </article>
+
+      <!-- 4. GET /api/messages/:address (Daftar Email Masuk Bersih Ringan) -->
+      <article class="endpoint-card" id="ep-messages">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; flex-wrap: wrap; gap: 6px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span class="method-tag method-get">GET</span>
+            <span style="font-family: 'JetBrains Mono', monospace; font-weight: 900; font-size: 1rem;">/api/messages/:address</span>
+          </div>
+          <a href="https://rzmail.my.id/api/messages/user@zallpyx.xyz" target="_blank" rel="noopener noreferrer" class="pill-badge pill-mint" style="text-decoration: none; font-size: 0.7rem; font-weight: 900; display: inline-flex; align-items: center; gap: 4px;">
+            🚀 Buka di Browser
+          </a>
+        </div>
+
+        <p style="font-size: 0.84rem; font-weight: 700; color: var(--text); margin-bottom: 10px; line-height: 1.4;">
+          Mengambil seluruh daftar email masuk untuk alamat tersebut. Format respons diringkas (tanpa kode HTML berat) dan kode OTP otomatis tertera di properti <code>otp_code</code>.
+        </p>
+
+        <div class="code-title-bar">
+          <span class="code-title-label">CONTOH REQUEST URL:</span>
+          <button class="btn-copy-pill" onclick="copySnippet('https://rzmail.my.id/api/messages/user@zallpyx.xyz')">📋 Salin URL</button>
+        </div>
+        <div class="code-block">
+https://rzmail.my.id/api/messages/user@zallpyx.xyz
+        </div>
+
+        <div class="code-title-bar">
+          <span class="code-title-label">CONTOH RESPON JSON (200 OK):</span>
+          <button class="btn-copy-pill" onclick="copySnippet('{\"success\":true,\"address\":\"user@zallpyx.xyz\",\"count\":1,\"messages\":[{\"id\":\"msg_canva_user_01\",\"from_address\":\"messages-noreply@canva.com\",\"subject\":\"482910 adalah kode masuk Canva Anda\",\"otp_code\":\"482910\"}]}')">📋 Salin JSON</button>
+        </div>
+        <div class="code-block">
+<pre>{
+  "<span class="json-key">success</span>": <span class="json-bool">true</span>,
+  "<span class="json-key">address</span>": "<span class="json-str">user@zallpyx.xyz</span>",
+  "<span class="json-key">isLocked</span>": <span class="json-bool">false</span>,
+  "<span class="json-key">count</span>": <span class="json-num">1</span>,
+  "<span class="json-key">messages</span>": [
+    {
+      "<span class="json-key">id</span>": "<span class="json-str">msg_canva_user_01</span>",
+      "<span class="json-key">from_address</span>": "<span class="json-str">messages-noreply@canva.com</span>",
+      "<span class="json-key">subject</span>": "<span class="json-str">482910 adalah kode masuk Canva Anda</span>",
+      "<span class="json-key">snippet</span>": "<span class="json-str">Halo! Gunakan kode masuk 482910 ini untuk melanjutkan ke Canva...</span>",
+      "<span class="json-key">otp_code</span>": "<span class="json-str">482910</span>",
+      "<span class="json-key">received_at</span>": "<span class="json-str">2026-09-26 10:04:03</span>"
+    }
+  ]
+}</pre>
+        </div>
+      </article>
+
+      <!-- 5. GET /api/domains (Daftar 24 Domain Terverifikasi) -->
+      <article class="endpoint-card" id="ep-domains">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; flex-wrap: wrap; gap: 6px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span class="method-tag method-get">GET</span>
+            <span style="font-family: 'JetBrains Mono', monospace; font-weight: 900; font-size: 1rem;">/api/domains</span>
+          </div>
+          <a href="https://rzmail.my.id/api/domains" target="_blank" rel="noopener noreferrer" class="pill-badge pill-mint" style="text-decoration: none; font-size: 0.7rem; font-weight: 900; display: inline-flex; align-items: center; gap: 4px;">
+            🚀 Buka di Browser
+          </a>
+        </div>
+
+        <p style="font-size: 0.84rem; font-weight: 700; color: var(--text); margin-bottom: 10px; line-height: 1.4;">
+          Mengambil seluruh daftar 24 domain aktif yang terverifikasi DNS MX Cloudflare Email Routing.
+        </p>
+
+        <div class="code-title-bar">
+          <span class="code-title-label">CONTOH REQUEST URL:</span>
+          <button class="btn-copy-pill" onclick="copySnippet('https://rzmail.my.id/api/domains')">📋 Salin URL</button>
+        </div>
+        <div class="code-block">
+https://rzmail.my.id/api/domains
+        </div>
+
+        <div class="code-title-bar">
+          <span class="code-title-label">CONTOH RESPON JSON (200 OK):</span>
+          <button class="btn-copy-pill" onclick="copySnippet('{\"success\":true,\"count\":24,\"domains\":[\"000287.my.id\",\"akumail.biz.id\",\"zallpyx.xyz\"]}')">📋 Salin JSON</button>
+        </div>
+        <div class="code-block">
+<pre>{
+  "<span class="json-key">success</span>": <span class="json-bool">true</span>,
+  "<span class="json-key">count</span>": <span class="json-num">24</span>,
+  "<span class="json-key">domains</span>": [
+    "<span class="json-str">000287.my.id</span>",
+    "<span class="json-str">akumail.biz.id</span>",
+    "<span class="json-str">akusihyes.web.id</span>",
+    "<span class="json-str">zallpyx.xyz</span>"
+  ]
+}</pre>
+        </div>
+      </article>
+
+      <!-- 6. GET /api/inboxes/:address/messages/:id (Isi Lengkap Email & HTML) -->
+      <article class="endpoint-card" id="ep-detail">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; flex-wrap: wrap; gap: 6px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span class="method-tag method-get">GET</span>
+            <span style="font-family: 'JetBrains Mono', monospace; font-weight: 900; font-size: 1rem;">/api/inboxes/:address/messages/:id</span>
+          </div>
+        </div>
+
+        <p style="font-size: 0.84rem; font-weight: 700; color: var(--text); margin-bottom: 10px; line-height: 1.4;">
+          Mengambil isi pesan secara lengkap, termasuk teks murni dan raw HTML (jika aplikasi/bot kamu membutuhkan rendering email penuh).
+        </p>
+
+        <div class="code-title-bar">
+          <span class="code-title-label">CONTOH REQUEST URL:</span>
+          <button class="btn-copy-pill" onclick="copySnippet('https://rzmail.my.id/api/inboxes/user@zallpyx.xyz/messages/msg_canva_user_01')">📋 Salin URL</button>
+        </div>
+        <div class="code-block">
+https://rzmail.my.id/api/inboxes/user@zallpyx.xyz/messages/msg_canva_user_01
+        </div>
+
+        <div class="code-title-bar">
+          <span class="code-title-label">CONTOH RESPON JSON (200 OK):</span>
+          <button class="btn-copy-pill" onclick="copySnippet('{\"success\":true,\"message\":{\"id\":\"msg_canva_user_01\",\"otp_code\":\"482910\"}}')">📋 Salin JSON</button>
+        </div>
+        <div class="code-block">
+<pre>{
+  "<span class="json-key">success</span>": <span class="json-bool">true</span>,
+  "<span class="json-key">message</span>": {
+    "<span class="json-key">id</span>": "<span class="json-str">msg_canva_user_01</span>",
+    "<span class="json-key">from_address</span>": "<span class="json-str">messages-noreply@canva.com</span>",
+    "<span class="json-key">subject</span>": "<span class="json-str">482910 adalah kode masuk Canva Anda</span>",
+    "<span class="json-key">body</span>": "<span class="json-str">Halo! Gunakan kode masuk 482910 ini...</span>",
+    "<span class="json-key">body_html</span>": "<span class="json-str">&lt;p&gt;Halo! Gunakan kode masuk &lt;strong&gt;482910&lt;/strong&gt;...&lt;/p&gt;</span>",
+    "<span class="json-key">otp_code</span>": "<span class="json-str">482910</span>",
+    "<span class="json-key">received_at</span>": "<span class="json-str">2026-09-26 10:04:03</span>"
+  }
+}</pre>
+        </div>
+      </article>
+
+      <!-- 7. GET /api/inboxes/:address/lock (Kunci Inbox dengan PIN) -->
+      <article class="endpoint-card" id="ep-lock">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; flex-wrap: wrap; gap: 6px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span class="method-tag method-get">GET</span>
+            <span style="font-family: 'JetBrains Mono', monospace; font-weight: 900; font-size: 1rem;">/api/inboxes/:address/lock</span>
+          </div>
+          <a href="https://rzmail.my.id/api/inboxes/user@zallpyx.xyz/lock?pin=123456" target="_blank" rel="noopener noreferrer" class="pill-badge pill-mint" style="text-decoration: none; font-size: 0.7rem; font-weight: 900; display: inline-flex; align-items: center; gap: 4px;">
+            🚀 Buka di Browser
+          </a>
+        </div>
+
+        <p style="font-size: 0.84rem; font-weight: 700; color: var(--text); margin-bottom: 10px; line-height: 1.4;">
+          Mengunci inbox dengan 6-digit PIN keamanan (SHA-256). Setelah dikunci, pesan masuk hanya bisa diakses dengan menyertakan parameter <code>?pin=123456</code>.
+        </p>
+
+        <div class="code-title-bar">
+          <span class="code-title-label">CONTOH REQUEST URL:</span>
+          <button class="btn-copy-pill" onclick="copySnippet('https://rzmail.my.id/api/inboxes/user@zallpyx.xyz/lock?pin=123456')">📋 Salin URL</button>
+        </div>
+        <div class="code-block">
+https://rzmail.my.id/api/inboxes/user@zallpyx.xyz/lock?pin=123456
+        </div>
+
+        <div class="code-title-bar">
+          <span class="code-title-label">CONTOH RESPON JSON (200 OK):</span>
+          <button class="btn-copy-pill" onclick="copySnippet('{\"success\":true,\"message\":\"Inbox successfully locked with PIN\"}')">📋 Salin JSON</button>
+        </div>
+        <div class="code-block">
+<pre>{
+  "<span class="json-key">success</span>": <span class="json-bool">true</span>,
+  "<span class="json-key">message</span>": "<span class="json-str">Inbox successfully locked with PIN</span>"
+}</pre>
+        </div>
+      </article>
+
+      <!-- 8. GET /api/inboxes/:address/delete (Hapus / Lepas Inbox) -->
+      <article class="endpoint-card" id="ep-delete">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; flex-wrap: wrap; gap: 6px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span class="method-tag method-get">GET</span>
+            <span style="font-family: 'JetBrains Mono', monospace; font-weight: 900; font-size: 1rem;">/api/inboxes/:address/delete</span>
+          </div>
+        </div>
+
+        <p style="font-size: 0.84rem; font-weight: 700; color: var(--text); margin-bottom: 10px; line-height: 1.4;">
+          Menghapus atau melepaskan kepemilikan inbox dari sesi kamu.
+        </p>
+
+        <div class="code-title-bar">
+          <span class="code-title-label">CONTOH REQUEST URL:</span>
+          <button class="btn-copy-pill" onclick="copySnippet('https://rzmail.my.id/api/inboxes/user@zallpyx.xyz/delete')">📋 Salin URL</button>
+        </div>
+        <div class="code-block">
+https://rzmail.my.id/api/inboxes/user@zallpyx.xyz/delete
+        </div>
+
+        <div class="code-title-bar">
+          <span class="code-title-label">CONTOH RESPON JSON (200 OK):</span>
+          <button class="btn-copy-pill" onclick="copySnippet('{\"success\":true,\"message\":\"Inbox unlinked from session\"}')">📋 Salin JSON</button>
+        </div>
+        <div class="code-block">
+<pre>{
+  "<span class="json-key">success</span>": <span class="json-bool">true</span>,
+  "<span class="json-key">message</span>": "<span class="json-str">Inbox unlinked from session</span>"
+}</pre>
+        </div>
+      </article>
+
+      <!-- INTEGRATION CODE SNIPPETS (PYTHON, NODE, CURL) -->
+      <section class="endpoint-card" style="margin-top: 30px;">
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+          <span class="pill-badge pill-yellow" style="font-size: 0.72rem; font-weight: 900;">BOT INTEGRATION</span>
+          <h3 style="font-family: 'Space Grotesk', sans-serif; font-size: 1.15rem; font-weight: 900; margin: 0;">Contoh Integrasi Bot (1 Baris HTTP GET)</h3>
+        </div>
+
+        <div style="display: flex; gap: 4px; margin-bottom: 0;">
+          <button class="tab-btn active" onclick="switchTab('python')">Python (Requests)</button>
+          <button class="tab-btn" onclick="switchTab('nodejs')">Node.js (Fetch)</button>
+          <button class="tab-btn" onclick="switchTab('curl')">cURL (Bash)</button>
+        </div>
+
+        <!-- Python Tab -->
+        <div id="tab-python">
+          <div class="code-title-bar">
+            <span class="code-title-label">PYTHON BOT SCRIPT:</span>
+            <button class="btn-copy-pill" onclick="copySnippet(document.getElementById('pythonCode').textContent)">📋 Salin Script</button>
+          </div>
+          <div class="code-block">
+            <pre id="pythonCode">import requests, time
+
+# 1. Buat custom email atau email acak instan via GET
+mail_res = requests.get("https://rzmail.my.id/api/custom/mybot@zallpyx.xyz").json()
+email = mail_res["address"]
+print(f"[*] Email dibuat: {email}")
+
+# 2. Tunggu OTP (contoh Canva) masuk via endpoint /api/otp
+print("[*] Menunggu kode OTP...")
+for _ in range(30):
+    time.sleep(2)
+    otp_data = requests.get(f"https://rzmail.my.id/api/otp/{email}").json()
+    if otp_data.get("has_otp"):
+        print(f"[✓] KODE OTP MASUK: {otp_data['otp']}")
+        print(f"[✓] Pengirim: {otp_data['from']} | Subject: {otp_data['subject']}")
+        break</pre>
+          </div>
+        </div>
+
+        <!-- Node.js Tab -->
+        <div id="tab-nodejs" style="display: none;">
+          <div class="code-title-bar">
+            <span class="code-title-label">NODE.JS / TELEGRAM BOT:</span>
+            <button class="btn-copy-pill" onclick="copySnippet(document.getElementById('nodeCode').textContent)">📋 Salin Script</button>
+          </div>
+          <div class="code-block">
+            <pre id="nodeCode">// 1. Buat custom email instan
+const res = await fetch('https://rzmail.my.id/api/custom/mybot@zallpyx.xyz');
+const { address } = await res.json();
+console.log('Email:', address);
+
+// 2. Cek OTP Canva secara instan
+const otpRes = await fetch(`https://rzmail.my.id/api/otp/${address}`);
+const otpData = await otpRes.json();
+if (otpData.has_otp) {
+  console.log('KODE OTP:', otpData.otp);
+}</pre>
+          </div>
+        </div>
+
+        <!-- cURL Tab -->
+        <div id="tab-curl" style="display: none;">
+          <div class="code-title-bar">
+            <span class="code-title-label">TERMINAL CURL:</span>
+            <button class="btn-copy-pill" onclick="copySnippet(document.getElementById('curlCode').textContent)">📋 Salin Script</button>
+          </div>
+          <div class="code-block">
+            <pre id="curlCode"># Buat custom email
+curl -s "https://rzmail.my.id/api/custom/mybot@zallpyx.xyz"
+
+# Ambil OTP langsung
+curl -s "https://rzmail.my.id/api/otp/mybot@zallpyx.xyz"</pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- SPONSOR & AD PROMO BANNER -->
+      <section class="endpoint-card" style="background: var(--yellow-light); border: 2px solid var(--border); margin-top: 24px; padding: 14px 16px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+          <div>
+            <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
+              <span class="pill-badge pill-yellow" style="font-size: 0.68rem; font-weight: 900;">SPONSOR & ADVERTISING</span>
+              <span style="font-weight: 900; font-size: 0.95rem; font-family: 'Space Grotesk', sans-serif;">Pasang Iklan di RZero Mail</span>
+            </div>
+            <p style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); margin: 0;">
+              Ingin mempromosikan bot, channel Telegram, tool, atau bisnis kamu ke ribuan pengunjung harian?
+            </p>
+          </div>
+          <a href="https://instagram.com/rskl411_" target="_blank" rel="noopener noreferrer" class="btn-brutal btn-brutal-yellow" style="text-decoration: none; padding: 8px 14px; font-size: 0.8rem; font-weight: 900; display: inline-flex; align-items: center; gap: 6px;">
+            <span>Kontak IG @rskl411_</span>
+            <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="3" fill="none"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg>
+          </a>
+        </div>
+      </section>
+
+      <!-- FOOTER -->
+      <footer style="margin-top: 40px; text-align: center; border-top: 2px solid var(--border); padding-top: 20px;">
+        <p style="font-size: 0.8rem; font-weight: 800; color: var(--text-muted); margin: 0;">
+          RZero Mail &bull; High-Voltage Disposable Mail Engine &bull; Built with Cloudflare Edge
+        </p>
+        <p style="font-size: 0.74rem; font-weight: 800; margin-top: 6px;">
+          Developed with ❤️ by <a href="https://instagram.com/rskl411_" target="_blank" rel="noopener noreferrer" style="color: var(--text); font-weight: 900; text-decoration: underline;">ren (@rskl411_)</a>
+        </p>
+      </footer>
+    </main>
+
+    <script>
+      function copySnippet(text) {
+        if (!text) return;
+        navigator.clipboard.writeText(text).then(() => {
+          showToast('✅ Berhasil disalin ke clipboard!');
+        }).catch(() => {
+          const ta = document.createElement('textarea');
+          ta.value = text;
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          document.body.removeChild(ta);
+          showToast('✅ Berhasil disalin!');
+        });
+      }
+
+      function showToast(msg) {
+        let toast = document.getElementById('docs-toast');
+        if (!toast) {
+          toast = document.createElement('div');
+          toast.id = 'docs-toast';
+          toast.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#121316;color:#FFFDF0;padding:9px 18px;border-radius:8px;font-weight:900;font-size:0.82rem;border:2px solid #FFFDF0;box-shadow:3px 3px 0px rgba(0,0,0,0.5);z-index:999999;transition:opacity 0.2s;';
+          document.body.appendChild(toast);
+        }
+        toast.textContent = msg;
+        toast.style.opacity = '1';
+        setTimeout(() => { toast.style.opacity = '0'; }, 1800);
+      }
+
+      function switchTab(lang) {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById('tab-python').style.display = 'none';
+        document.getElementById('tab-nodejs').style.display = 'none';
+        document.getElementById('tab-curl').style.display = 'none';
+
+        if (lang === 'python') {
+          document.getElementById('tab-python').style.display = 'block';
+          event.target.classList.add('active');
+        } else if (lang === 'nodejs') {
+          document.getElementById('tab-nodejs').style.display = 'block';
+          event.target.classList.add('active');
+        } else if (lang === 'curl') {
+          document.getElementById('tab-curl').style.display = 'block';
+          event.target.classList.add('active');
+        }
+      }
+
+      async function runTester(type) {
+        const box = document.getElementById('testerResultBox');
+        const out = document.getElementById('testerOutput');
+        const urlLabel = document.getElementById('testerUrlLabel');
+        const badge = document.getElementById('testerStatusBadge');
+
+        box.style.display = 'block';
+        out.textContent = 'Memuat respons metode GET dari Cloudflare edge...';
+
+        try {
+          let url = '';
+          if (type === 'create') {
+            url = '/api/create?domain=zallpyx.xyz';
+          } else if (type === 'custom') {
+            url = '/api/custom/botku@zallpyx.xyz';
+          } else if (type === 'otp') {
+            url = '/api/otp/user@zallpyx.xyz';
+          } else if (type === 'domains') {
+            url = '/api/domains';
+          }
+
+          urlLabel.textContent = 'GET ' + url;
+
+          const t0 = performance.now();
+          const res = await fetch(url);
+          const t1 = performance.now();
+          const data = await res.json();
+
+          badge.textContent = `${res.status} OK (${Math.round(t1 - t0)}ms)`;
+          badge.style.background = res.ok ? 'var(--mint)' : 'var(--pink)';
+          out.textContent = JSON.stringify(data, null, 2);
+        } catch (err) {
+          badge.textContent = 'ERROR';
+          badge.style.background = 'var(--pink)';
+          out.textContent = 'Gagal: ' + err.message;
+        }
+      }
+    </script>
+  </body>
+</html>

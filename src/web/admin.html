@@ -1,0 +1,966 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>RZero Mail — Admin Console</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23FFE81D' stroke='%23121316' stroke-width='4'/%3E%3Ctext x='32' y='42' font-family='sans-serif' font-size='22' font-weight='900' fill='%23121316' text-anchor='middle'%3EADM%3C/text%3E%3C/svg%3E" />
+    <link rel="stylesheet" href="/styles.css" />
+    <style>
+      .admin-nav-bar {
+        background-color: var(--yellow);
+        border-bottom: var(--border-w) solid var(--border);
+        padding: 10px 18px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .admin-tabs {
+        display: flex;
+        gap: 6px;
+        background-color: #fff;
+        border: var(--border-w) solid var(--border);
+        border-radius: var(--radius-full);
+        padding: 4px;
+        box-shadow: var(--shadow-sm);
+      }
+      .admin-tab-btn {
+        background: transparent;
+        border: none;
+        border-radius: var(--radius-full);
+        padding: 6px 14px;
+        font-weight: 800;
+        font-size: 0.8rem;
+        cursor: pointer;
+        color: var(--text);
+        transition: all 0.1s;
+      }
+      .admin-tab-btn.active {
+        background-color: var(--yellow);
+        border: var(--border-w) solid var(--border);
+        box-shadow: 1px 1px 0 var(--border);
+      }
+      .admin-card {
+        background-color: #fff;
+        border: var(--border-w) solid var(--border);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-md);
+        padding: 20px;
+        margin-bottom: 16px;
+      }
+      .admin-card-yellow { background-color: var(--yellow-light); }
+      .admin-card-pink { background-color: var(--pink-light); }
+      .admin-card-mint { background-color: var(--mint-light); }
+
+      .admin-metric-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+        margin-bottom: 16px;
+      }
+      .metric-box {
+        border: var(--border-w) solid var(--border);
+        border-radius: var(--radius-md);
+        padding: 14px;
+        box-shadow: var(--shadow-sm);
+      }
+      .metric-label {
+        font-size: 0.72rem;
+        font-weight: 800;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+        color: var(--text);
+      }
+      .metric-val {
+        font-family: 'Space Grotesk', sans-serif;
+        font-weight: 900;
+        font-size: 1.8rem;
+        color: var(--text);
+        margin-top: 4px;
+      }
+      .table-brutal {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.84rem;
+        margin-top: 10px;
+      }
+      .table-brutal th, .table-brutal td {
+        border: var(--border-w) solid var(--border);
+        padding: 8px 12px;
+        text-align: left;
+      }
+      .table-brutal th {
+        background-color: var(--yellow);
+        font-weight: 900;
+      }
+    </style>
+  </head>
+  <body>
+
+    <!-- ADMIN NAVBAR -->
+    <header class="admin-nav-bar">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <div class="header-logo-box" style="background-color: var(--yellow); color: var(--text);">ADM</div>
+        <div>
+          <span style="font-family: 'Space Grotesk', sans-serif; font-weight: 900; font-size: 1.15rem;">RZero Admin</span>
+          <span class="pill-badge pill-mint" style="padding: 2px 8px; font-size: 0.65rem; margin-left: 6px;">ROOT</span>
+        </div>
+      </div>
+      <div id="authNavControls" style="display: none; align-items: center; gap: 8px;">
+        <button class="btn-brutal btn-brutal-yellow" id="adminRefreshBtn" style="padding: 6px 12px; font-size: 0.78rem;">
+          <svg class="icon-svg" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2.5" fill="none"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+          <span>REFRESH</span>
+        </button>
+        <button class="btn-brutal btn-brutal-red" id="adminLogoutBtn" style="padding: 6px 12px; font-size: 0.78rem;">LOGOUT</button>
+      </div>
+    </header>
+
+    <main class="main-wrapper" style="max-width: 720px;">
+
+      <!-- ========================================================
+           2-STEP LOGIN CARD (STEP 1: USER+PASS -> STEP 2: 3DS/V2L)
+           ======================================================== -->
+      <section class="admin-card admin-card-yellow" id="loginCard">
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+          <div style="width: 38px; height: 38px; background: #fff; border: var(--border-w) solid var(--border); border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; box-shadow: var(--shadow-sm);">
+            <svg viewBox="0 0 24 24" width="20" height="20" stroke="#121316" stroke-width="2.5" fill="none"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          </div>
+          <div>
+            <h2 style="font-family: 'Space Grotesk', sans-serif; font-weight: 900; font-size: 1.25rem;">Admin Authentication</h2>
+            <div style="font-size: 0.78rem; font-weight: 700; color: var(--text-muted);" id="stepSubtitle">Langkah 1: Masukkan Username &amp; Password Utama</div>
+          </div>
+        </div>
+
+        <!-- Step 1 Form -->
+        <div id="step1Box" style="display: flex; flex-direction: column; gap: 12px;">
+          <div>
+            <label style="font-weight: 800; font-size: 0.76rem; text-transform: uppercase;">Username</label>
+            <input type="text" id="adminUsername" class="input-brutal" placeholder="Username admin" autocomplete="username" />
+          </div>
+          <div>
+            <label style="font-weight: 800; font-size: 0.76rem; text-transform: uppercase;">Password</label>
+            <input type="password" id="adminPassword" class="input-brutal" placeholder="Password utama" autocomplete="current-password" />
+          </div>
+          <button class="btn-brutal btn-brutal-mint" id="btnNextStep1" style="padding: 12px; font-size: 0.95rem; margin-top: 6px;">
+            VERIFIKASI LANGKAH 1 &rarr;
+          </button>
+        </div>
+
+        <!-- Step 2 Form (3DS / V2L) -->
+        <div id="step2Box" style="display: none; flex-direction: column; gap: 12px;">
+          <div style="background-color: #fff; border: var(--border-w) solid var(--border); border-radius: var(--radius-md); padding: 12px; font-size: 0.82rem; font-weight: 700;">
+            Langkah 1 Terverifikasi. Masukkan kunci <strong>3DS / V2L Secondary Key</strong> untuk membuka enkripsi sesi.
+          </div>
+          <div>
+            <label style="font-weight: 800; font-size: 0.76rem; text-transform: uppercase;">3DS / V2L Secondary Key</label>
+            <input type="password" id="admin3dsKey" class="input-brutal" placeholder="Kunci 3DS rahasia" />
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn-brutal btn-brutal-mint" id="btnSubmitStep2" style="flex: 2; padding: 12px; font-size: 0.95rem;">
+              BUKA DASHBOARD ADMIN
+            </button>
+            <button class="btn-brutal" id="btnBackStep1" style="flex: 1;">Batal</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================================
+           ADMIN DASHBOARD (AFTER 2-STEP AUTH)
+           ======================================================== -->
+      <div id="dashboardSection" style="display: none;">
+
+        <!-- TABS NAV -->
+        <div style="display: flex; justify-content: center; margin-bottom: 16px;">
+          <div class="admin-tabs">
+            <button class="admin-tab-btn active" data-tab="overview">
+              <svg class="icon-svg" viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2.5" fill="none"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+              <span>Ringkasan</span>
+            </button>
+            <button class="admin-tab-btn" data-tab="domains">
+              <svg class="icon-svg" viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2.5" fill="none"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+              <span>Domain Mail</span>
+            </button>
+            <button class="admin-tab-btn" data-tab="ads">
+              <svg class="icon-svg" viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2.5" fill="none"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+              <span>Kelola Iklan</span>
+            </button>
+            <button class="admin-tab-btn" data-tab="logs">
+              <svg class="icon-svg" viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2.5" fill="none"><path d="M4 11a9 9 0 0 1 9 9"/><path d="M4 4a16 16 0 0 1 16 16"/><circle cx="5" cy="19" r="1"/></svg>
+              <span>Traffic Logs</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- TAB 1: OVERVIEW -->
+        <div class="tab-pane" id="pane-overview">
+          <div class="admin-metric-grid">
+            <div class="metric-box admin-card-yellow">
+              <div class="metric-label">
+                <svg class="icon-svg" viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2.5" fill="none"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                <span>DOMAIN AKTIF</span>
+              </div>
+              <div class="metric-val" id="metricDomains">0</div>
+            </div>
+            <div class="metric-box admin-card-mint">
+              <div class="metric-label">
+                <svg class="icon-svg" viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2.5" fill="none"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+                <span>TOTAL EMAIL MASUK</span>
+              </div>
+              <div class="metric-val" id="metricMessages">0</div>
+            </div>
+            <div class="metric-box admin-card-pink">
+              <div class="metric-label">
+                <svg class="icon-svg" viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2.5" fill="none"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                <span>INBOX TERDAFTAR</span>
+              </div>
+              <div class="metric-val" id="metricInboxes">0</div>
+            </div>
+            <div class="metric-box" style="background-color: var(--cyan);">
+              <div class="metric-label">
+                <svg class="icon-svg" viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2.5" fill="none"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                <span>INBOX TERKUNCI PIN</span>
+              </div>
+              <div class="metric-val" id="metricLocked">0</div>
+            </div>
+          </div>
+
+          <div class="admin-card">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+              <h3 style="font-family: 'Space Grotesk', sans-serif; font-weight: 900; font-size: 1.05rem;">Pintasan Cepat</h3>
+            </div>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+              <button class="btn-brutal btn-brutal-yellow" onclick="switchTab('domains')">➕ Kelola Domain</button>
+              <button class="btn-brutal btn-brutal-mint" onclick="switchTab('logs')">👀 Pantau Traffic</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 2: DOMAINS -->
+        <div class="tab-pane" id="pane-domains" style="display: none;">
+          <div class="admin-card admin-card-yellow">
+            <h3 style="font-family: 'Space Grotesk', sans-serif; font-weight: 900; font-size: 1.1rem; margin-bottom: 8px;">Tambah Domain Mail</h3>
+            <p style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); margin-bottom: 12px;">
+              Domain akan diverifikasi otomatis via DoH (DNS-over-HTTPS). Begitu MX record diarahkan, status domain otomatis <strong>AKTIF</strong> dan langsung muncul di opsi user!
+            </p>
+            <div style="display: flex; gap: 8px;">
+              <input type="text" id="newDomainInput" class="input-brutal" placeholder="contoh: rzmail.my.id" style="flex: 2;" />
+              <button class="btn-brutal btn-brutal-mint" id="btnAddDomain" style="flex: 1;">➕ Tambah</button>
+            </div>
+          </div>
+
+          <!-- DNS MX SETUP GUIDE CARD (AUTO-APPEARS / TOGGLEABLE) -->
+          <div class="admin-card" id="dnsSetupCard" style="display: none; background-color: #FFFDF0; border: var(--border-w) solid var(--border); box-shadow: var(--shadow-md);">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span class="pill-badge pill-mint" style="font-size: 0.72rem; font-weight: 900;">ATUR 3 MX RECORD</span>
+                <span style="font-family: 'Space Grotesk', sans-serif; font-weight: 900; font-size: 1.1rem; color: var(--text);" id="setupDomainName">domain.com</span>
+              </div>
+              <button class="btn-brutal btn-brutal-red" onclick="document.getElementById('dnsSetupCard').style.display='none'" style="padding: 2px 8px; font-size: 0.75rem;">✕ TUTUP</button>
+            </div>
+
+            <div style="background: #fff; border: 2px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px; margin-bottom: 14px;">
+              <p style="font-size: 0.8rem; font-weight: 700; margin: 0; color: var(--text); line-height: 1.5;">
+                ⚡ <strong>MX 1 (Utama)</strong> wajib dipasang agar email masuk. Pasang <strong>MX 2 &amp; MX 3 (Opsional)</strong> sebagai backup multi-route biar pengiriman email &amp; OTP jauh lebih kenceng, anti-delay, dan anti-mental!
+              </p>
+            </div>
+
+            <!-- 3 MX LIST -->
+            <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px;">
+              <!-- MX 1 -->
+              <div style="background: #fff; border: 2px solid var(--border); border-radius: var(--radius-sm); padding: 8px 12px; display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
+                <div>
+                  <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 2px;">
+                    <span class="pill-badge pill-mint" style="font-size: 0.65rem; padding: 1px 6px;">MX 1 (UTAMA - WAJIB)</span>
+                    <span style="font-size: 0.72rem; font-weight: 800; color: var(--text-muted);">Prioritas: 10 (atau 40)</span>
+                  </div>
+                  <div style="font-family: 'JetBrains Mono', monospace; font-weight: 900; font-size: 0.88rem; color: var(--text);">route1.mx.cloudflare.net</div>
+                </div>
+                <button class="btn-brutal btn-brutal-yellow" onclick="copySingleMx('route1.mx.cloudflare.net')" style="padding: 4px 10px; font-size: 0.74rem;">📋 Salin</button>
+              </div>
+
+              <!-- MX 2 -->
+              <div style="background: #fff; border: 2px solid var(--border); border-radius: var(--radius-sm); padding: 8px 12px; display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
+                <div>
+                  <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 2px;">
+                    <span class="pill-badge pill-yellow" style="font-size: 0.65rem; padding: 1px 6px;">MX 2 (BACKUP 1 - OPSIONAL)</span>
+                    <span style="font-size: 0.72rem; font-weight: 800; color: var(--text-muted);">Prioritas: 20 (atau 60) &bull; ⚡ Biar Lebih Kenceng</span>
+                  </div>
+                  <div style="font-family: 'JetBrains Mono', monospace; font-weight: 900; font-size: 0.88rem; color: var(--text);">route2.mx.cloudflare.net</div>
+                </div>
+                <button class="btn-brutal btn-brutal-yellow" onclick="copySingleMx('route2.mx.cloudflare.net')" style="padding: 4px 10px; font-size: 0.74rem;">📋 Salin</button>
+              </div>
+
+              <!-- MX 3 -->
+              <div style="background: #fff; border: 2px solid var(--border); border-radius: var(--radius-sm); padding: 8px 12px; display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
+                <div>
+                  <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 2px;">
+                    <span class="pill-badge pill-yellow" style="font-size: 0.65rem; padding: 1px 6px;">MX 3 (BACKUP 2 - OPSIONAL)</span>
+                    <span style="font-size: 0.72rem; font-weight: 800; color: var(--text-muted);">Prioritas: 30 (atau 93) &bull; ⚡ Zero-Delay OTP</span>
+                  </div>
+                  <div style="font-family: 'JetBrains Mono', monospace; font-weight: 900; font-size: 0.88rem; color: var(--text);">route3.mx.cloudflare.net</div>
+                </div>
+                <button class="btn-brutal btn-brutal-yellow" onclick="copySingleMx('route3.mx.cloudflare.net')" style="padding: 4px 10px; font-size: 0.74rem;">📋 Salin</button>
+              </div>
+            </div>
+
+            <!-- LIVE STATUS BOX -->
+            <div id="dnsLiveStatusBox" style="display: none; background: #fff; border: 2px dashed var(--border); border-radius: var(--radius-sm); padding: 10px 12px; margin-bottom: 12px;">
+              <div style="font-size: 0.72rem; font-weight: 800; color: var(--text-muted); margin-bottom: 4px;">STATUS DNS AKTIF SAAT INI (DOH):</div>
+              <div id="dnsLiveStatusText" style="font-weight: 900; font-size: 0.86rem; color: var(--text);">Memeriksa...</div>
+            </div>
+
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+              <button class="btn-brutal btn-brutal-yellow" onclick="copyAll3Mx()" style="flex: 1; padding: 10px; font-size: 0.8rem; font-weight: 900;">
+                📋 Salin Semua 3 MX
+              </button>
+              <button class="btn-brutal btn-brutal-mint" id="btnCheckSetupMx" style="flex: 2; padding: 10px; font-size: 0.8rem; font-weight: 900;">
+                ⚡ Periksa &amp; Aktifkan Otomatis (DoH)
+              </button>
+            </div>
+          </div>
+
+          <div class="admin-card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+              <div>
+                <h3 style="font-family: 'Space Grotesk', sans-serif; font-weight: 900; font-size: 1.1rem; margin: 0;">Daftar Domain Terdaftar</h3>
+                <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 700; margin-top: 2px;" id="domainCountSub">24 Domain Terpasang</div>
+              </div>
+              <button class="btn-brutal btn-brutal-yellow" onclick="loadAdminData()" style="padding: 6px 12px; font-size: 0.78rem;">
+                <svg class="icon-svg" viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2.5" fill="none"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+                <span>REFRESH</span>
+              </button>
+            </div>
+            <div id="domainCardsContainer" style="display: flex; flex-direction: column; gap: 8px; max-height: 480px; overflow-y: auto; padding: 2px;"></div>
+          </div>
+        </div>
+
+        <!-- TAB 3: ADS & MONETIZATION -->
+        <div class="tab-pane" id="pane-ads" style="display: none;">
+          <!-- Slot 1: Main Banner -->
+          <div class="admin-card admin-card-yellow" style="margin-bottom: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 12px;">
+              <div>
+                <span class="badge badge-mint" style="font-size: 0.72rem;">SLOT UTAMA (HIGH-CTR)</span>
+                <h3 style="font-family: 'Space Grotesk', sans-serif; font-weight: 900; font-size: 1.15rem; margin-top: 4px;">Banner Di Bawah Alamat Email</h3>
+                <div style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600;">Posisi emas: Pas di atas hitungan mundur OTP saat user menunggu email.</div>
+              </div>
+              <div class="badge" id="statsSlotMain" style="background: #fff; font-size: 0.8rem; padding: 6px 12px;">
+                Views: 0 &bull; Clicks: 0
+              </div>
+            </div>
+
+            <div style="display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap;">
+              <label style="display: inline-flex; align-items: center; gap: 6px; font-weight: 800; font-size: 0.88rem; cursor: pointer;">
+                <input type="checkbox" id="adMainActive" style="width: 18px; height: 18px;">
+                <span>Aktifkan Slot Ini</span>
+              </label>
+            </div>
+
+            <div style="margin-bottom: 12px;">
+              <label style="display: block; font-weight: 800; font-size: 0.78rem; text-transform: uppercase; margin-bottom: 4px;">Tipe Iklan:</label>
+              <select id="adMainType" class="input-brutal" style="width: 100%; max-width: 380px;">
+                <option value="manual">Iklan Manual (Banner / Link Sponsor Pribadi)</option>
+                <option value="script">Kode Script (Adsterra / Monetag / HTML Code)</option>
+              </select>
+            </div>
+
+            <!-- Manual Fields Main -->
+            <div id="adMainManualFields" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px;">
+              <div>
+                <label style="display: block; font-weight: 800; font-size: 0.78rem; text-transform: uppercase; margin-bottom: 4px;">Judul Iklan / Sponsor:</label>
+                <input id="adMainTitle" class="input-brutal" placeholder="Contoh: Sewa VPS Anti-Suspend Mulai 20rb" style="width: 100%;">
+              </div>
+              <div>
+                <label style="display: block; font-weight: 800; font-size: 0.78rem; text-transform: uppercase; margin-bottom: 4px;">Deskripsi Singkat:</label>
+                <input id="adMainDesc" class="input-brutal" placeholder="Contoh: Server super kencang, support bot Telegram & proxy." style="width: 100%;">
+              </div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <div>
+                  <label style="display: block; font-weight: 800; font-size: 0.78rem; text-transform: uppercase; margin-bottom: 4px;">URL Gambar Thumbnail (Opsional):</label>
+                  <input id="adMainBanner" class="input-brutal" placeholder="https://.../banner.png" style="width: 100%;">
+                </div>
+                <div>
+                  <label style="display: block; font-weight: 800; font-size: 0.78rem; text-transform: uppercase; margin-bottom: 4px;">Teks Tombol CTA:</label>
+                  <input id="adMainCta" class="input-brutal" placeholder="Lihat Promo / Pasang Iklan" style="width: 100%;">
+                </div>
+              </div>
+              <div>
+                <label style="display: block; font-weight: 800; font-size: 0.78rem; text-transform: uppercase; margin-bottom: 4px;">URL Tujuan (Target Link Saat Diklik):</label>
+                <input id="adMainTarget" class="input-brutal" placeholder="https://t.me/carry atau link affiliate / WA bisnis" style="width: 100%;">
+              </div>
+            </div>
+
+            <!-- Script Fields Main -->
+            <div id="adMainScriptFields" style="display: none; flex-direction: column; gap: 6px; margin-bottom: 14px;">
+              <label style="display: block; font-weight: 800; font-size: 0.78rem; text-transform: uppercase;">Kode HTML / Script Adsterra / Monetag:</label>
+              <textarea id="adMainScript" class="input-brutal" rows="4" placeholder="Paste kode <script ...> atau <iframe> dari Adsterra/Monetag di sini" style="width: 100%; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem;"></textarea>
+            </div>
+
+            <button class="btn-brutal btn-brutal-mint" id="btnSaveAdMain" style="font-weight: 900;">
+              <svg class="icon-svg" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2.5" fill="none"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+              <span>Simpan Slot Utama</span>
+            </button>
+          </div>
+
+          <!-- Slot 2: Bottom Banner -->
+          <div class="admin-card">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 12px;">
+              <div>
+                <span class="badge" style="background: var(--cyan); font-size: 0.72rem;">SLOT BAWAH</span>
+                <h3 style="font-family: 'Space Grotesk', sans-serif; font-weight: 900; font-size: 1.15rem; margin-top: 4px;">Banner Di Bawah Pesan Masuk</h3>
+                <div style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600;">Posisi sekunder sebelum footer, cocok buat sponsorship tambahan.</div>
+              </div>
+              <div class="badge" id="statsSlotBottom" style="background: var(--yellow-light); font-size: 0.8rem; padding: 6px 12px;">
+                Views: 0 &bull; Clicks: 0
+              </div>
+            </div>
+
+            <div style="display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap;">
+              <label style="display: inline-flex; align-items: center; gap: 6px; font-weight: 800; font-size: 0.88rem; cursor: pointer;">
+                <input type="checkbox" id="adBottomActive" style="width: 18px; height: 18px;">
+                <span>Aktifkan Slot Ini</span>
+              </label>
+            </div>
+
+            <div style="margin-bottom: 12px;">
+              <label style="display: block; font-weight: 800; font-size: 0.78rem; text-transform: uppercase; margin-bottom: 4px;">Tipe Iklan:</label>
+              <select id="adBottomType" class="input-brutal" style="width: 100%; max-width: 380px;">
+                <option value="manual">Iklan Manual (Banner / Link Sponsor Pribadi)</option>
+                <option value="script">Kode Script (Adsterra / Monetag / HTML Code)</option>
+              </select>
+            </div>
+
+            <!-- Manual Fields Bottom -->
+            <div id="adBottomManualFields" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px;">
+              <div>
+                <label style="display: block; font-weight: 800; font-size: 0.78rem; text-transform: uppercase; margin-bottom: 4px;">Judul Iklan / Sponsor:</label>
+                <input id="adBottomTitle" class="input-brutal" placeholder="Contoh: Open Pasang Iklan di RZero Mail" style="width: 100%;">
+              </div>
+              <div>
+                <label style="display: block; font-weight: 800; font-size: 0.78rem; text-transform: uppercase; margin-bottom: 4px;">Deskripsi Singkat:</label>
+                <input id="adBottomDesc" class="input-brutal" placeholder="Jangkau ribuan pengunjung harian aktif." style="width: 100%;">
+              </div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <div>
+                  <label style="display: block; font-weight: 800; font-size: 0.78rem; text-transform: uppercase; margin-bottom: 4px;">URL Gambar Thumbnail (Opsional):</label>
+                  <input id="adBottomBanner" class="input-brutal" placeholder="https://.../banner.png" style="width: 100%;">
+                </div>
+                <div>
+                  <label style="display: block; font-weight: 800; font-size: 0.78rem; text-transform: uppercase; margin-bottom: 4px;">Teks Tombol CTA:</label>
+                  <input id="adBottomCta" class="input-brutal" placeholder="Hubungi Admin" style="width: 100%;">
+                </div>
+              </div>
+              <div>
+                <label style="display: block; font-weight: 800; font-size: 0.78rem; text-transform: uppercase; margin-bottom: 4px;">URL Tujuan (Target Link Saat Diklik):</label>
+                <input id="adBottomTarget" class="input-brutal" placeholder="https://t.me/carry" style="width: 100%;">
+              </div>
+            </div>
+
+            <!-- Script Fields Bottom -->
+            <div id="adBottomScriptFields" style="display: none; flex-direction: column; gap: 6px; margin-bottom: 14px;">
+              <label style="display: block; font-weight: 800; font-size: 0.78rem; text-transform: uppercase;">Kode HTML / Script Adsterra / Monetag:</label>
+              <textarea id="adBottomScript" class="input-brutal" rows="4" placeholder="Paste kode banner script di sini" style="width: 100%; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem;"></textarea>
+            </div>
+
+            <button class="btn-brutal btn-brutal-mint" id="btnSaveAdBottom" style="font-weight: 900;">
+              <svg class="icon-svg" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2.5" fill="none"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+              <span>Simpan Slot Bawah</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- TAB 4: LOGS -->
+        <div class="tab-pane" id="pane-logs" style="display: none;">
+          <div class="admin-card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+              <div>
+                <h3 style="font-family: 'Space Grotesk', sans-serif; font-weight: 900; font-size: 1.1rem; margin: 0;">Live Traffic &amp; Anti-DDoS Monitor</h3>
+                <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 700; margin-top: 2px;">50 Request Terakhir (Edge APAC)</div>
+              </div>
+              <button class="btn-brutal btn-brutal-yellow" onclick="loadAdminData()" style="padding: 6px 12px; font-size: 0.78rem;">
+                <svg class="icon-svg" viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2.5" fill="none"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+                <span>REFRESH LOG</span>
+              </button>
+            </div>
+            <div id="trafficLogsContainer" style="display: flex; flex-direction: column; gap: 8px; max-height: 520px; overflow-y: auto; padding: 2px;"></div>
+          </div>
+        </div>
+
+      </div>
+
+      <footer style="text-align: center; font-size: 0.78rem; font-weight: 700; color: var(--text-muted); padding: 24px 0 16px 0;">
+        RZero Admin &bull; Controlled by <a href="https://instagram.com/rskl411_" target="_blank" rel="noopener noreferrer" style="color: var(--text); font-weight: 900; text-decoration: underline; text-underline-offset: 3px;">@rskl411_</a>
+      </footer>
+
+    </main>
+
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script>
+      let tempChallengeToken = null;
+
+      function showToast(msg, type = 'info') {
+        const c = document.getElementById('toastContainer');
+        if (!c) return;
+        c.innerHTML = ''; // Clear previous stacked toasts to avoid blocking cards
+        const t = document.createElement('div');
+        t.className = 'toast ' + (type === 'error' ? 'toast-error' : type === 'mint' ? 'toast-mint' : '');
+        t.innerText = msg;
+        c.appendChild(t);
+        setTimeout(() => t.remove(), 1600);
+      }
+
+      // Step 1
+      document.getElementById('btnNextStep1').onclick = async () => {
+        const u = document.getElementById('adminUsername').value.trim();
+        const p = document.getElementById('adminPassword').value.trim();
+        if (!u || !p) return showToast('Isi username dan password', 'error');
+
+        try {
+          const res = await fetch('/admin/action', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'login_step1', username: u, password: p })
+          });
+          const d = await res.json();
+          if (res.ok && d.step === 2) {
+            tempChallengeToken = d.challenge_token || d.temp_token;
+            document.getElementById('step1Box').style.display = 'none';
+            document.getElementById('step2Box').style.display = 'flex';
+            document.getElementById('stepSubtitle').textContent = 'Langkah 2: Masukkan Kunci 3DS / V2L';
+            showToast('Langkah 1 lolos, masukkan 3DS Key', 'mint');
+          } else {
+            showToast(d.message || d.error || 'Kredensial salah', 'error');
+          }
+        } catch (e) {
+          showToast('Koneksi terputus', 'error');
+        }
+      };
+
+      document.getElementById('btnBackStep1').onclick = () => {
+        document.getElementById('step2Box').style.display = 'none';
+        document.getElementById('step1Box').style.display = 'flex';
+        document.getElementById('stepSubtitle').textContent = 'Langkah 1: Masukkan Username & Password Utama';
+      };
+
+      // Step 2
+      document.getElementById('btnSubmitStep2').onclick = async () => {
+        const k = document.getElementById('admin3dsKey').value.trim();
+        if (!k) return showToast('Masukkan kunci 3DS', 'error');
+
+        try {
+          const res = await fetch('/admin/action', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'login_step2', challenge_token: tempChallengeToken, temp_token: tempChallengeToken, v2l_key: k, v2l: k, '3ds': k })
+          });
+          const d = await res.json();
+          if (res.ok) {
+            showToast('Login berhasil! Membuka dashboard...', 'mint');
+            document.getElementById('loginCard').style.display = 'none';
+            document.getElementById('dashboardSection').style.display = 'block';
+            document.getElementById('authNavControls').style.display = 'flex';
+            loadAdminData();
+          } else {
+            showToast(d.message || d.error || 'Kunci 3DS salah', 'error');
+          }
+        } catch (e) {
+          showToast('Koneksi terputus', 'error');
+        }
+      };
+
+      // Tab switcher
+      function switchTab(tabId) {
+        document.querySelectorAll('.admin-tab-btn').forEach(b => {
+          b.classList.toggle('active', b.dataset.tab === tabId);
+        });
+        document.querySelectorAll('.tab-pane').forEach(p => {
+          p.style.display = p.id === 'pane-' + tabId ? 'block' : 'none';
+        });
+        if (tabId === 'ads') loadAdsAdmin();
+        if (tabId === 'logs') loadAdminData();
+      }
+      window.switchTab = switchTab;
+      document.querySelectorAll('.admin-tab-btn').forEach(b => {
+        b.onclick = () => switchTab(b.dataset.tab);
+      });
+
+      // Load Admin Data
+      async function loadAdminData() {
+        try {
+          const res = await fetch('/admin/action', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'get_dashboard' })
+          });
+          const d = await res.json();
+          if (res.status === 401) {
+            document.getElementById('loginCard').style.display = 'block';
+            document.getElementById('dashboardSection').style.display = 'none';
+            document.getElementById('authNavControls').style.display = 'none';
+            return;
+          }
+
+          document.getElementById('loginCard').style.display = 'none';
+          document.getElementById('dashboardSection').style.display = 'block';
+          document.getElementById('authNavControls').style.display = 'flex';
+          loadAdsAdmin();
+
+          // Metrics
+          const m = d.metrics || {};
+          document.getElementById('metricDomains').textContent = m.active_domains || 0;
+          document.getElementById('metricMessages').textContent = m.total_messages || 0;
+          document.getElementById('metricInboxes').textContent = m.total_inboxes || 0;
+          document.getElementById('metricLocked').textContent = m.locked_inboxes || 0;
+
+          // Domains
+          const doms = (d.domains || []).sort((a, b) => a.domain.localeCompare(b.domain));
+          const domainSub = document.getElementById('domainCountSub');
+          if (domainSub) domainSub.textContent = `${doms.length} Domain Terpasang`;
+
+          const domContainer = document.getElementById('domainCardsContainer');
+          if (domContainer) {
+            if (doms.length === 0) {
+              domContainer.innerHTML = `
+                <div style="text-align: center; padding: 32px 16px; border: var(--border-w) dashed var(--border); border-radius: var(--radius-md); color: var(--text-muted); font-weight: 700;">
+                  Belum ada domain mail yang ditambahkan.
+                </div>
+              `;
+            } else {
+              domContainer.innerHTML = doms.map(dm => `
+                <div style="background: #fff; border: var(--border-w) solid var(--border); border-radius: var(--radius-md); box-shadow: var(--shadow-sm); padding: 10px 12px; display: flex; flex-direction: column; gap: 8px;">
+                  <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-family: 'Space Grotesk', sans-serif; font-weight: 900; font-size: 0.98rem; color: var(--text);">@${dm.domain}</span>
+                    <span class="pill-badge ${dm.is_active ? 'pill-mint' : 'pill-white'}" style="font-size: 0.7rem; font-weight: 900; padding: 2px 10px;">
+                      ${dm.is_active ? 'AKTIF' : 'PENDING'}
+                    </span>
+                  </div>
+                  <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                    <button class="btn-brutal btn-brutal-mint" onclick="openMxSetup('${dm.domain}')" style="flex: 2; padding: 6px 8px; font-size: 0.74rem; font-weight: 900;">
+                      <span>⚙️ ATUR 3 MX</span>
+                    </button>
+                    <button class="btn-brutal btn-brutal-yellow" onclick="checkDomainMx('${dm.domain}')" style="flex: 2; padding: 6px 8px; font-size: 0.74rem; font-weight: 900;">
+                      <svg class="icon-svg" viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2.5" fill="none"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                      <span>CEK MX</span>
+                    </button>
+                    <button class="btn-brutal btn-brutal-red" onclick="deleteDomain('${dm.domain}')" style="flex: 1; padding: 6px 8px; font-size: 0.74rem; font-weight: 900;">
+                      <span>HAPUS</span>
+                    </button>
+                  </div>
+                </div>
+              `).join('');
+            }
+          }
+
+          // Logs
+          const logs = d.logs || [];
+          const container = document.getElementById('trafficLogsContainer');
+          if (!container) return;
+          if (logs.length === 0) {
+            container.innerHTML = `
+              <div style="text-align: center; padding: 32px 16px; border: var(--border-w) dashed var(--border); border-radius: var(--radius-md); color: var(--text-muted); font-weight: 700;">
+                Belum ada traffic request yang tercatat di database.
+              </div>
+            `;
+          } else {
+            container.innerHTML = logs.map(l => {
+              const timeStr = l.timestamp || l.created_at || '';
+              const shortTime = timeStr.includes(' ') ? timeStr.split(' ')[1] : timeStr;
+              const isOk = l.status < 300;
+              const isRateLimit = l.status === 429;
+              const statusBg = isOk ? 'var(--mint)' : (isRateLimit ? 'var(--yellow)' : 'var(--pink)');
+              const statusLabel = isRateLimit ? '429 LIMIT' : `${l.status}`;
+
+              let displayPath = l.path;
+              try {
+                displayPath = decodeURIComponent(l.path);
+              } catch (e) {}
+
+              return `
+                <div style="background: #fff; border: var(--border-w) solid var(--border); border-radius: var(--radius-md); box-shadow: var(--shadow-sm); padding: 10px 12px;">
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; flex-wrap: wrap; gap: 6px;">
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                      <span class="pill-badge pill-white" style="font-size: 0.7rem; font-weight: 900; padding: 2px 7px;">${l.method}</span>
+                      <span style="background: ${statusBg}; border: 1.5px solid var(--border); border-radius: 999px; padding: 2px 8px; font-size: 0.7rem; font-weight: 900; color: #121316;">${statusLabel}</span>
+                      <span style="font-family: monospace; font-size: 0.72rem; color: var(--text-muted); font-weight: 700;">${shortTime}</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                      <span style="font-family: monospace; font-size: 0.74rem; font-weight: 800; color: var(--text);">${l.ip}</span>
+                      ${l.duration_ms ? `<span style="font-size: 0.68rem; color: var(--text-muted); font-weight: 700;">${l.duration_ms}ms</span>` : ''}
+                    </div>
+                  </div>
+                  <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; word-break: break-all; color: var(--text); font-weight: 800; background: var(--surface); padding: 5px 8px; border-radius: 6px; border: 1.5px solid var(--border);">
+                    ${escapeHtml(displayPath)}
+                  </div>
+                </div>
+              `;
+            }).join('');
+          }
+
+        } catch (e) {
+          console.error(e);
+        }
+      }
+
+      let currentSetupDomain = null;
+
+      function openMxSetup(domain) {
+        currentSetupDomain = domain;
+        document.getElementById('setupDomainName').textContent = domain;
+        document.getElementById('dnsSetupCard').style.display = 'block';
+        document.getElementById('dnsSetupCard').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        checkDomainMx(domain, true);
+      }
+      window.openMxSetup = openMxSetup;
+
+      function copySingleMx(route) {
+        navigator.clipboard.writeText(route);
+        showToast('Server MX disalin: ' + route, 'mint');
+      }
+      window.copySingleMx = copySingleMx;
+
+      function copyAll3Mx() {
+        const text = "MX 10 route1.mx.cloudflare.net\nMX 20 route2.mx.cloudflare.net\nMX 30 route3.mx.cloudflare.net";
+        navigator.clipboard.writeText(text);
+        showToast('3 Server MX disalin sekaligus!', 'mint');
+      }
+      window.copyAll3Mx = copyAll3Mx;
+
+      document.getElementById('btnCheckSetupMx').onclick = () => {
+        if (currentSetupDomain) checkDomainMx(currentSetupDomain, true);
+      };
+
+      // Add Domain
+      document.getElementById('btnAddDomain').onclick = async () => {
+        const dom = document.getElementById('newDomainInput').value.trim().toLowerCase();
+        if (!dom) return showToast('Masukkan nama domain', 'error');
+
+        try {
+          const res = await fetch('/admin/action', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'add_domain', domain: dom })
+          });
+          const d = await res.json();
+          if (res.ok) {
+            currentSetupDomain = dom;
+            document.getElementById('setupDomainName').textContent = dom;
+            document.getElementById('dnsSetupCard').style.display = 'block';
+
+            if (d.is_active || d.autoActivated) {
+              showToast(`Domain ${dom} langsung AKTIF! (MX terdeteksi)`, 'mint');
+            } else {
+              showToast(`Domain ${dom} ditambahkan! Pasang DNS MX di bawah.`, 'info');
+            }
+            document.getElementById('newDomainInput').value = '';
+            loadAdminData();
+            checkDomainMx(dom, true);
+          } else {
+            showToast(d.message || d.error || 'Gagal tambah domain', 'error');
+          }
+        } catch (e) {
+          showToast('Koneksi terputus', 'error');
+        }
+      };
+
+      async function checkDomainMx(domain, updateStatusCard = false) {
+        showToast(`Memeriksa MX untuk ${domain}...`, 'info');
+        const statusBox = document.getElementById('dnsLiveStatusBox');
+        const statusText = document.getElementById('dnsLiveStatusText');
+
+        if (updateStatusCard && statusBox && statusText) {
+          statusBox.style.display = 'block';
+          statusText.textContent = 'Memeriksa DNS via Cloudflare DoH...';
+        }
+
+        try {
+          const res = await fetch('/admin/action', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'check_domain_mx', domain })
+          });
+          const d = await res.json();
+
+          if (updateStatusCard && statusBox && statusText) {
+            statusBox.style.display = 'block';
+            statusText.textContent = d.speedLabel || (d.live ? '✅ MX Cloudflare Terdeteksi' : '❌ MX Belum Terdeteksi');
+          }
+
+          if (d.live || d.active || d.autoActivated) {
+            showToast(d.speedLabel || `✅ MX Terverifikasi! Domain ${domain} AKTIF!`, 'mint');
+          } else {
+            showToast(`⏳ MX belum terdeteksi di DNS global (${domain})`, 'error');
+          }
+          loadAdminData();
+        } catch (e) {
+          if (updateStatusCard && statusText) statusText.textContent = 'Gagal memeriksa status DNS';
+          showToast('Gagal cek MX', 'error');
+        }
+      }
+      window.checkDomainMx = checkDomainMx;
+
+      async function deleteDomain(domain) {
+        if (!confirm(`Hapus domain ${domain}?`)) return;
+        try {
+          await fetch('/admin/action', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'delete_domain', domain })
+          });
+          showToast('Domain dihapus', 'mint');
+          loadAdminData();
+        } catch (e) {
+          showToast('Gagal hapus domain', 'error');
+        }
+      }
+      window.deleteDomain = deleteDomain;
+
+      // Logout
+      document.getElementById('adminLogoutBtn').onclick = async () => {
+        await fetch('/admin/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'logout' })
+        });
+        showToast('Logout berhasil', 'info');
+        location.reload();
+      };
+
+      document.getElementById('adminRefreshBtn').onclick = () => {
+        loadAdminData();
+        showToast('Data diperbarui', 'mint');
+      };
+
+      // Check existing session on load
+      loadAdminData();
+
+      // ==========================================
+      // ADS MANAGEMENT CONTROLLER
+      // ==========================================
+      const adMainType = document.getElementById('adMainType');
+      const adBottomType = document.getElementById('adBottomType');
+
+      function syncAdTypeUI() {
+        const isMainScript = adMainType.value === 'script';
+        document.getElementById('adMainManualFields').style.display = isMainScript ? 'none' : 'flex';
+        document.getElementById('adMainScriptFields').style.display = isMainScript ? 'flex' : 'none';
+
+        const isBottomScript = adBottomType.value === 'script';
+        document.getElementById('adBottomManualFields').style.display = isBottomScript ? 'none' : 'flex';
+        document.getElementById('adBottomScriptFields').style.display = isBottomScript ? 'flex' : 'none';
+      }
+
+      adMainType.onchange = syncAdTypeUI;
+      adBottomType.onchange = syncAdTypeUI;
+
+      async function loadAdsAdmin() {
+        try {
+          const res = await fetch('/admin/action', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'get_ads' })
+          });
+          if (!res.ok) return;
+          const d = await res.json();
+          const ads = d.ads || [];
+
+          ads.forEach(ad => {
+            const isMain = ad.slot_name === 'slot_main';
+            const views = ad.views || 0;
+            const clicks = ad.clicks || 0;
+            const ctr = views > 0 ? ((clicks / views) * 100).toFixed(1) : '0.0';
+
+            if (isMain) {
+              document.getElementById('adMainActive').checked = Boolean(ad.is_active);
+              adMainType.value = ad.ad_type || 'manual';
+              document.getElementById('adMainTitle').value = ad.title || '';
+              document.getElementById('adMainDesc').value = ad.description || '';
+              document.getElementById('adMainBanner').value = ad.banner_url || '';
+              document.getElementById('adMainTarget').value = ad.target_url || '';
+              document.getElementById('adMainCta').value = ad.cta_text || 'Lihat Promo';
+              document.getElementById('adMainScript').value = ad.script_code || '';
+              document.getElementById('statsSlotMain').textContent = `Views: ${views} • Clicks: ${clicks} • CTR: ${ctr}%`;
+            } else if (ad.slot_name === 'slot_bottom') {
+              document.getElementById('adBottomActive').checked = Boolean(ad.is_active);
+              adBottomType.value = ad.ad_type || 'manual';
+              document.getElementById('adBottomTitle').value = ad.title || '';
+              document.getElementById('adBottomDesc').value = ad.description || '';
+              document.getElementById('adBottomBanner').value = ad.banner_url || '';
+              document.getElementById('adBottomTarget').value = ad.target_url || '';
+              document.getElementById('adBottomCta').value = ad.cta_text || 'Hubungi';
+              document.getElementById('adBottomScript').value = ad.script_code || '';
+              document.getElementById('statsSlotBottom').textContent = `Views: ${views} • Clicks: ${clicks} • CTR: ${ctr}%`;
+            }
+          });
+          syncAdTypeUI();
+        } catch (e) {
+          console.error('Failed to load ads admin', e);
+        }
+      }
+
+      // Save Main Ad
+      document.getElementById('btnSaveAdMain').onclick = async () => {
+        const payload = {
+          slot_name: 'slot_main',
+          is_active: document.getElementById('adMainActive').checked ? 1 : 0,
+          ad_type: adMainType.value,
+          title: document.getElementById('adMainTitle').value.trim(),
+          description: document.getElementById('adMainDesc').value.trim(),
+          banner_url: document.getElementById('adMainBanner').value.trim(),
+          target_url: document.getElementById('adMainTarget').value.trim(),
+          cta_text: document.getElementById('adMainCta').value.trim() || 'Lihat Promo',
+          script_code: document.getElementById('adMainScript').value.trim()
+        };
+
+        try {
+          const res = await fetch('/admin/action', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'save_ad', ad: payload })
+          });
+          const d = await res.json();
+          if (res.ok) {
+            showToast('✅ Slot Utama Berhasil Disimpan!', 'mint');
+            loadAdsAdmin();
+          } else {
+            showToast(d.message || d.error || 'Gagal menyimpan slot utama', 'error');
+          }
+        } catch (e) {
+          showToast('Koneksi terputus', 'error');
+        }
+      };
+
+      // Save Bottom Ad
+      document.getElementById('btnSaveAdBottom').onclick = async () => {
+        const payload = {
+          slot_name: 'slot_bottom',
+          is_active: document.getElementById('adBottomActive').checked ? 1 : 0,
+          ad_type: adBottomType.value,
+          title: document.getElementById('adBottomTitle').value.trim(),
+          description: document.getElementById('adBottomDesc').value.trim(),
+          banner_url: document.getElementById('adBottomBanner').value.trim(),
+          target_url: document.getElementById('adBottomTarget').value.trim(),
+          cta_text: document.getElementById('adBottomCta').value.trim() || 'Hubungi',
+          script_code: document.getElementById('adBottomScript').value.trim()
+        };
+
+        try {
+          const res = await fetch('/admin/action', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'save_ad', ad: payload })
+          });
+          const d = await res.json();
+          if (res.ok) {
+            showToast('✅ Slot Bawah Berhasil Disimpan!', 'mint');
+            loadAdsAdmin();
+          } else {
+            showToast(d.message || d.error || 'Gagal menyimpan slot bawah', 'error');
+          }
+        } catch (e) {
+          showToast('Koneksi terputus', 'error');
+        }
+      };
+    </script>
+  </body>
+</html>
