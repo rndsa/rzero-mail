@@ -240,11 +240,14 @@
           <div class="admin-card admin-card-yellow">
             <h3 style="font-family: 'Space Grotesk', sans-serif; font-weight: 900; font-size: 1.1rem; margin-bottom: 8px;">Tambah Domain Mail</h3>
             <p style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); margin-bottom: 12px;">
-              Domain akan diverifikasi otomatis via DoH (DNS-over-HTTPS). Begitu MX record diarahkan, status domain otomatis <strong>AKTIF</strong> dan langsung muncul di opsi user!
+              Domain diverifikasi otomatis via Dual-DoH (Cloudflare + Google DNS). Begitu 3 MX record diarahkan, status otomatis <strong>AKTIF</strong> dan langsung muncul di pilihan user!
             </p>
             <div style="display: flex; gap: 8px;">
-              <input type="text" id="newDomainInput" class="input-brutal" placeholder="contoh: rzmail.my.id" style="flex: 2;" />
-              <button class="btn-brutal btn-brutal-mint" id="btnAddDomain" style="flex: 1;">➕ Tambah</button>
+              <input type="text" id="newDomainInput" class="input-brutal" placeholder="contoh: rzmail.my.id atau sub.domain.com" style="flex: 2;" />
+              <button class="btn-brutal btn-brutal-mint" id="btnAddDomain" style="flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
+                <svg class="icon-svg" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2.5" fill="none"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                <span>Tambah</span>
+              </button>
             </div>
           </div>
 
@@ -254,14 +257,33 @@
               <div style="display: flex; align-items: center; gap: 8px;">
                 <span class="pill-badge pill-mint" style="font-size: 0.72rem; font-weight: 900;">ATUR 3 MX RECORD</span>
                 <span style="font-family: 'Space Grotesk', sans-serif; font-weight: 900; font-size: 1.1rem; color: var(--text);" id="setupDomainName">domain.com</span>
+                <span id="dnsSetupStatusBadge" class="pill-badge pill-white" style="font-size: 0.7rem; font-weight: 900; padding: 2px 8px;">PENDING</span>
               </div>
-              <button class="btn-brutal btn-brutal-red" onclick="document.getElementById('dnsSetupCard').style.display='none'" style="padding: 2px 8px; font-size: 0.75rem;">✕ TUTUP</button>
+              <button class="btn-brutal btn-brutal-red" onclick="document.getElementById('dnsSetupCard').style.display='none'" style="padding: 3px 8px; font-size: 0.75rem; display: inline-flex; align-items: center; gap: 4px;">
+                <svg class="icon-svg" viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2.5" fill="none"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                <span>TUTUP</span>
+              </button>
             </div>
 
-            <div style="background: #fff; border: 2px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px; margin-bottom: 14px;">
+            <div style="background: #fff; border: 2px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px; margin-bottom: 12px;">
               <p style="font-size: 0.8rem; font-weight: 700; margin: 0; color: var(--text); line-height: 1.5;">
-                ⚡ <strong>MX 1 (Utama)</strong> wajib dipasang agar email masuk. Pasang <strong>MX 2 &amp; MX 3 (Opsional)</strong> sebagai backup multi-route biar pengiriman email &amp; OTP jauh lebih kenceng, anti-delay, dan anti-mental!
+                Arahkan 3 record MX di DNS Manager domain Anda (Cloudflare, FreeDNS, ClouDNS, dynv6, dll). MX 1 wajib; MX 2 &amp; 3 sebagai cadangan redundansi zero-delay OTP.
               </p>
+            </div>
+
+            <!-- NAME / HOST DNS GUIDE -->
+            <div style="background: #fff; border: 2px solid var(--border); border-radius: var(--radius-sm); padding: 8px 12px; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
+              <div>
+                <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 2px;">
+                  <span class="pill-badge pill-yellow" style="font-size: 0.65rem; padding: 1px 6px;">NAME / HOST DNS</span>
+                  <span id="dnsHostTypeHint" style="font-size: 0.72rem; font-weight: 800; color: var(--text-muted);">Root (@) atau Subdomain</span>
+                </div>
+                <div id="dnsSetupHostVal" style="font-family: 'JetBrains Mono', monospace; font-weight: 900; font-size: 0.95rem; color: var(--text);">@</div>
+              </div>
+              <button class="btn-brutal btn-brutal-mint" onclick="copySetupHost()" style="padding: 4px 10px; font-size: 0.74rem; display: inline-flex; align-items: center; gap: 4px;">
+                <svg class="icon-svg" viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2.5" fill="none"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                <span>Salin Host</span>
+              </button>
             </div>
 
             <!-- 3 MX LIST -->
@@ -271,50 +293,66 @@
                 <div>
                   <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 2px;">
                     <span class="pill-badge pill-mint" style="font-size: 0.65rem; padding: 1px 6px;">MX 1 (UTAMA - WAJIB)</span>
-                    <span style="font-size: 0.72rem; font-weight: 800; color: var(--text-muted);">Prioritas: 10 (atau 40)</span>
+                    <span style="font-size: 0.72rem; font-weight: 800; color: var(--text-muted);">Prioritas: 10</span>
                   </div>
                   <div style="font-family: 'JetBrains Mono', monospace; font-weight: 900; font-size: 0.88rem; color: var(--text);">route1.mx.cloudflare.net</div>
                 </div>
-                <button class="btn-brutal btn-brutal-yellow" onclick="copySingleMx('route1.mx.cloudflare.net')" style="padding: 4px 10px; font-size: 0.74rem;">📋 Salin</button>
+                <button class="btn-brutal btn-brutal-yellow" onclick="copySingleMx('route1.mx.cloudflare.net')" style="padding: 4px 10px; font-size: 0.74rem; display: inline-flex; align-items: center; gap: 4px;">
+                  <svg class="icon-svg" viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2.5" fill="none"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                  <span>Salin</span>
+                </button>
               </div>
 
               <!-- MX 2 -->
               <div style="background: #fff; border: 2px solid var(--border); border-radius: var(--radius-sm); padding: 8px 12px; display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
                 <div>
                   <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 2px;">
-                    <span class="pill-badge pill-yellow" style="font-size: 0.65rem; padding: 1px 6px;">MX 2 (BACKUP 1 - OPSIONAL)</span>
-                    <span style="font-size: 0.72rem; font-weight: 800; color: var(--text-muted);">Prioritas: 20 (atau 60) &bull; ⚡ Biar Lebih Kenceng</span>
+                    <span class="pill-badge pill-yellow" style="font-size: 0.65rem; padding: 1px 6px;">MX 2 (BACKUP 1)</span>
+                    <span style="font-size: 0.72rem; font-weight: 800; color: var(--text-muted);">Prioritas: 20 &bull; Akselerasi Route</span>
                   </div>
                   <div style="font-family: 'JetBrains Mono', monospace; font-weight: 900; font-size: 0.88rem; color: var(--text);">route2.mx.cloudflare.net</div>
                 </div>
-                <button class="btn-brutal btn-brutal-yellow" onclick="copySingleMx('route2.mx.cloudflare.net')" style="padding: 4px 10px; font-size: 0.74rem;">📋 Salin</button>
+                <button class="btn-brutal btn-brutal-yellow" onclick="copySingleMx('route2.mx.cloudflare.net')" style="padding: 4px 10px; font-size: 0.74rem; display: inline-flex; align-items: center; gap: 4px;">
+                  <svg class="icon-svg" viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2.5" fill="none"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                  <span>Salin</span>
+                </button>
               </div>
 
               <!-- MX 3 -->
               <div style="background: #fff; border: 2px solid var(--border); border-radius: var(--radius-sm); padding: 8px 12px; display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
                 <div>
                   <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 2px;">
-                    <span class="pill-badge pill-yellow" style="font-size: 0.65rem; padding: 1px 6px;">MX 3 (BACKUP 2 - OPSIONAL)</span>
-                    <span style="font-size: 0.72rem; font-weight: 800; color: var(--text-muted);">Prioritas: 30 (atau 93) &bull; ⚡ Zero-Delay OTP</span>
+                    <span class="pill-badge pill-yellow" style="font-size: 0.65rem; padding: 1px 6px;">MX 3 (BACKUP 2)</span>
+                    <span style="font-size: 0.72rem; font-weight: 800; color: var(--text-muted);">Prioritas: 30 &bull; Anti-Delay OTP</span>
                   </div>
                   <div style="font-family: 'JetBrains Mono', monospace; font-weight: 900; font-size: 0.88rem; color: var(--text);">route3.mx.cloudflare.net</div>
                 </div>
-                <button class="btn-brutal btn-brutal-yellow" onclick="copySingleMx('route3.mx.cloudflare.net')" style="padding: 4px 10px; font-size: 0.74rem;">📋 Salin</button>
+                <button class="btn-brutal btn-brutal-yellow" onclick="copySingleMx('route3.mx.cloudflare.net')" style="padding: 4px 10px; font-size: 0.74rem; display: inline-flex; align-items: center; gap: 4px;">
+                  <svg class="icon-svg" viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2.5" fill="none"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                  <span>Salin</span>
+                </button>
               </div>
             </div>
 
             <!-- LIVE STATUS BOX -->
             <div id="dnsLiveStatusBox" style="display: none; background: #fff; border: 2px dashed var(--border); border-radius: var(--radius-sm); padding: 10px 12px; margin-bottom: 12px;">
               <div style="font-size: 0.72rem; font-weight: 800; color: var(--text-muted); margin-bottom: 4px;">STATUS DNS AKTIF SAAT INI (DOH):</div>
-              <div id="dnsLiveStatusText" style="font-weight: 900; font-size: 0.86rem; color: var(--text);">Memeriksa...</div>
+              <div id="dnsLiveStatusText" style="font-weight: 900; font-size: 0.86rem; color: var(--text); margin-bottom: 6px;">Memeriksa...</div>
+              <div id="dnsLiveRecordsList" style="font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--text-muted); line-height: 1.4;"></div>
             </div>
 
             <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-              <button class="btn-brutal btn-brutal-yellow" onclick="copyAll3Mx()" style="flex: 1; padding: 10px; font-size: 0.8rem; font-weight: 900;">
-                📋 Salin Semua 3 MX
+              <button class="btn-brutal btn-brutal-yellow" onclick="copyAll3Mx()" style="flex: 1; padding: 10px; font-size: 0.8rem; font-weight: 900; display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
+                <svg class="icon-svg" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2.5" fill="none"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                <span>Salin Semua 3 MX</span>
               </button>
-              <button class="btn-brutal btn-brutal-mint" id="btnCheckSetupMx" style="flex: 2; padding: 10px; font-size: 0.8rem; font-weight: 900;">
-                ⚡ Periksa &amp; Aktifkan Otomatis (DoH)
+              <button class="btn-brutal btn-brutal-mint" id="btnCheckSetupMx" style="flex: 1.5; padding: 10px; font-size: 0.8rem; font-weight: 900; display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
+                <svg class="icon-svg" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2.5" fill="none"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                <span>Periksa DNS (DoH)</span>
+              </button>
+              <button class="btn-brutal btn-brutal-white" id="btnForceActivateSetup" onclick="forceActivateCurrentSetupDomain()" style="flex: 1; padding: 10px; font-size: 0.8rem; font-weight: 900; display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
+                <svg class="icon-svg" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2.5" fill="none"><polyline points="20 6 9 17 4 12"/></svg>
+                <span>Paksa Aktifkan</span>
               </button>
             </div>
           </div>
@@ -631,19 +669,25 @@
                 <div style="background: #fff; border: var(--border-w) solid var(--border); border-radius: var(--radius-md); box-shadow: var(--shadow-sm); padding: 10px 12px; display: flex; flex-direction: column; gap: 8px;">
                   <div style="display: flex; justify-content: space-between; align-items: center;">
                     <span style="font-family: 'Space Grotesk', sans-serif; font-weight: 900; font-size: 0.98rem; color: var(--text);">@${dm.domain}</span>
-                    <span class="pill-badge ${dm.is_active ? 'pill-mint' : 'pill-white'}" style="font-size: 0.7rem; font-weight: 900; padding: 2px 10px;">
+                    <span onclick="toggleDomain('${dm.domain}', ${dm.is_active ? 1 : 0})" class="pill-badge ${dm.is_active ? 'pill-mint' : 'pill-yellow'}" style="font-size: 0.72rem; font-weight: 900; padding: 2px 8px; cursor: pointer; user-select: none;" title="Klik untuk ubah status">
                       ${dm.is_active ? 'AKTIF' : 'PENDING'}
                     </span>
                   </div>
                   <div style="display: flex; gap: 6px; flex-wrap: wrap;">
-                    <button class="btn-brutal btn-brutal-mint" onclick="openMxSetup('${dm.domain}')" style="flex: 2; padding: 6px 8px; font-size: 0.74rem; font-weight: 900;">
-                      <span>⚙️ ATUR 3 MX</span>
+                    <button class="btn-brutal btn-brutal-mint" onclick="openMxSetup('${dm.domain}')" style="flex: 1.5; padding: 6px 8px; font-size: 0.74rem; font-weight: 900; display: inline-flex; align-items: center; justify-content: center; gap: 4px;">
+                      <svg class="icon-svg" viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2.5" fill="none"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                      <span>ATUR MX</span>
                     </button>
-                    <button class="btn-brutal btn-brutal-yellow" onclick="checkDomainMx('${dm.domain}')" style="flex: 2; padding: 6px 8px; font-size: 0.74rem; font-weight: 900;">
+                    <button class="btn-brutal btn-brutal-yellow" onclick="checkDomainMx('${dm.domain}')" style="flex: 1.2; padding: 6px 8px; font-size: 0.74rem; font-weight: 900; display: inline-flex; align-items: center; justify-content: center; gap: 4px;">
                       <svg class="icon-svg" viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2.5" fill="none"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
                       <span>CEK MX</span>
                     </button>
-                    <button class="btn-brutal btn-brutal-red" onclick="deleteDomain('${dm.domain}')" style="flex: 1; padding: 6px 8px; font-size: 0.74rem; font-weight: 900;">
+                    <button class="btn-brutal ${dm.is_active ? 'btn-brutal-white' : 'btn-brutal-mint'}" onclick="toggleDomain('${dm.domain}', ${dm.is_active ? 1 : 0})" style="flex: 1.5; padding: 6px 8px; font-size: 0.74rem; font-weight: 900; display: inline-flex; align-items: center; justify-content: center; gap: 4px;">
+                      <svg class="icon-svg" viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2.5" fill="none"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>
+                      <span>${dm.is_active ? 'NONAKTIFKAN' : 'AKTIFKAN'}</span>
+                    </button>
+                    <button class="btn-brutal btn-brutal-red" onclick="deleteDomain('${dm.domain}')" style="flex: 0.8; padding: 6px 8px; font-size: 0.74rem; font-weight: 900; display: inline-flex; align-items: center; justify-content: center; gap: 4px;">
+                      <svg class="icon-svg" viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2.5" fill="none"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                       <span>HAPUS</span>
                     </button>
                   </div>
@@ -707,11 +751,32 @@
       function openMxSetup(domain) {
         currentSetupDomain = domain;
         document.getElementById('setupDomainName').textContent = domain;
-        document.getElementById('dnsSetupCard').style.display = 'block';
-        document.getElementById('dnsSetupCard').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+        // Detect suggested host
+        const parts = domain.split('.');
+        const multiPartTlds = ['co.id', 'biz.id', 'web.id', 'my.id', 'ac.id', 'sch.id', 'go.id', 'or.id', 'v6.rocks', 'v6.army', 'v6.navy', 'dns.army', 'dns.navy'];
+        const endsWithMultiPart = multiPartTlds.some(tld => domain.endsWith('.' + tld));
+        const isSubdomain = endsWithMultiPart ? parts.length > 3 : parts.length > 2;
+        const suggestedHost = isSubdomain ? parts[0] : '@';
+
+        const hostValEl = document.getElementById('dnsSetupHostVal');
+        const hostHintEl = document.getElementById('dnsHostTypeHint');
+        if (hostValEl) hostValEl.textContent = suggestedHost;
+        if (hostHintEl) hostHintEl.textContent = isSubdomain ? `Subdomain: isi "${parts[0]}" (atau "${domain}")` : 'Root Domain: isi "@"';
+
+        const setupCard = document.getElementById('dnsSetupCard');
+        setupCard.style.display = 'block';
+        setupCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         checkDomainMx(domain, true);
       }
       window.openMxSetup = openMxSetup;
+
+      function copySetupHost() {
+        const host = document.getElementById('dnsSetupHostVal').textContent || '@';
+        navigator.clipboard.writeText(host);
+        showToast('Host DNS disalin: ' + host, 'mint');
+      }
+      window.copySetupHost = copySetupHost;
 
       function copySingleMx(route) {
         navigator.clipboard.writeText(route);
@@ -726,14 +791,56 @@
       }
       window.copyAll3Mx = copyAll3Mx;
 
+      async function toggleDomain(domain, currentActive) {
+        const nextActive = !currentActive;
+        showToast(`${nextActive ? 'Mengaktifkan' : 'Menonaktifkan'} domain ${domain}...`, 'info');
+        try {
+          const res = await fetch('/admin/action', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'toggle_domain', domain, is_active: nextActive })
+          });
+          const d = await res.json();
+          if (res.ok && d.success) {
+            showToast(`Domain ${domain} sekarang ${nextActive ? 'AKTIF' : 'PENDING'}!`, 'mint');
+            if (currentSetupDomain === domain) {
+              const badge = document.getElementById('dnsSetupStatusBadge');
+              if (badge) {
+                badge.className = `pill-badge ${nextActive ? 'pill-mint' : 'pill-white'}`;
+                badge.textContent = nextActive ? 'AKTIF' : 'PENDING';
+              }
+            }
+            await loadAdminData();
+          } else {
+            showToast(d.message || d.error || 'Gagal ubah status domain', 'error');
+          }
+        } catch (e) {
+          showToast('Koneksi terputus', 'error');
+        }
+      }
+      window.toggleDomain = toggleDomain;
+
+      async function forceActivateCurrentSetupDomain() {
+        if (!currentSetupDomain) return;
+        await toggleDomain(currentSetupDomain, 0);
+      }
+      window.forceActivateCurrentSetupDomain = forceActivateCurrentSetupDomain;
+
       document.getElementById('btnCheckSetupMx').onclick = () => {
         if (currentSetupDomain) checkDomainMx(currentSetupDomain, true);
       };
 
       // Add Domain
       document.getElementById('btnAddDomain').onclick = async () => {
-        const dom = document.getElementById('newDomainInput').value.trim().toLowerCase();
-        if (!dom) return showToast('Masukkan nama domain', 'error');
+        let dom = document.getElementById('newDomainInput').value.trim().toLowerCase();
+        dom = dom.replace(/^https?:\/\//i, '').replace(/^@/, '').replace(/\/.*$/, '').trim();
+        if (!dom || !dom.includes('.') || dom.length < 3) {
+          return showToast('Masukkan nama domain yang valid', 'error');
+        }
+
+        const btnAdd = document.getElementById('btnAddDomain');
+        btnAdd.disabled = true;
+        btnAdd.style.opacity = '0.7';
 
         try {
           const res = await fetch('/admin/action', {
@@ -742,24 +849,23 @@
             body: JSON.stringify({ action: 'add_domain', domain: dom })
           });
           const d = await res.json();
-          if (res.ok) {
-            currentSetupDomain = dom;
-            document.getElementById('setupDomainName').textContent = dom;
-            document.getElementById('dnsSetupCard').style.display = 'block';
-
-            if (d.is_active || d.autoActivated) {
+          if (res.ok && d.success) {
+            document.getElementById('newDomainInput').value = '';
+            openMxSetup(dom);
+            if (d.is_active) {
               showToast(`Domain ${dom} langsung AKTIF! (MX terdeteksi)`, 'mint');
             } else {
-              showToast(`Domain ${dom} ditambahkan! Pasang DNS MX di bawah.`, 'info');
+              showToast(`Domain ${dom} ditambahkan (PENDING). Pasang 3 MX di bawah.`, 'yellow');
             }
-            document.getElementById('newDomainInput').value = '';
-            loadAdminData();
-            checkDomainMx(dom, true);
+            await loadAdminData();
           } else {
             showToast(d.message || d.error || 'Gagal tambah domain', 'error');
           }
         } catch (e) {
           showToast('Koneksi terputus', 'error');
+        } finally {
+          btnAdd.disabled = false;
+          btnAdd.style.opacity = '1';
         }
       };
 
@@ -767,10 +873,13 @@
         showToast(`Memeriksa MX untuk ${domain}...`, 'info');
         const statusBox = document.getElementById('dnsLiveStatusBox');
         const statusText = document.getElementById('dnsLiveStatusText');
+        const recordsList = document.getElementById('dnsLiveRecordsList');
+        const setupBadge = document.getElementById('dnsSetupStatusBadge');
 
         if (updateStatusCard && statusBox && statusText) {
           statusBox.style.display = 'block';
-          statusText.textContent = 'Memeriksa DNS via Cloudflare DoH...';
+          statusText.textContent = 'Memeriksa DNS via Dual-DoH (Cloudflare + Google)...';
+          if (recordsList) recordsList.textContent = '';
         }
 
         try {
@@ -783,15 +892,28 @@
 
           if (updateStatusCard && statusBox && statusText) {
             statusBox.style.display = 'block';
-            statusText.textContent = d.speedLabel || (d.live ? '✅ MX Cloudflare Terdeteksi' : '❌ MX Belum Terdeteksi');
+            statusText.textContent = d.speedLabel || (d.live ? 'MX Cloudflare Terdeteksi' : 'MX Belum Terdeteksi');
+
+            if (setupBadge) {
+              setupBadge.className = `pill-badge ${d.live || d.active ? 'pill-mint' : 'pill-white'}`;
+              setupBadge.textContent = d.live || d.active ? 'AKTIF' : 'PENDING';
+            }
+
+            if (recordsList && d.records) {
+              if (d.records.length > 0) {
+                recordsList.innerHTML = '<strong>Record ditemukan di DNS:</strong><br>' + d.records.map(r => `&bull; ${escapeHtml(r)}`).join('<br>');
+              } else {
+                recordsList.innerHTML = '<em>DNS belum mengembalikan MX record. Jika baru disetel, tunggu 1-5 menit propagasi atau klik "Paksa Aktifkan".</em>';
+              }
+            }
           }
 
           if (d.live || d.active || d.autoActivated) {
-            showToast(d.speedLabel || `✅ MX Terverifikasi! Domain ${domain} AKTIF!`, 'mint');
+            showToast(d.speedLabel || `MX Terverifikasi! Domain ${domain} AKTIF!`, 'mint');
           } else {
-            showToast(`⏳ MX belum terdeteksi di DNS global (${domain})`, 'error');
+            showToast(`MX belum terdeteksi di DNS global (${domain})`, 'yellow');
           }
-          loadAdminData();
+          await loadAdminData();
         } catch (e) {
           if (updateStatusCard && statusText) statusText.textContent = 'Gagal memeriksa status DNS';
           showToast('Gagal cek MX', 'error');
@@ -808,7 +930,10 @@
             body: JSON.stringify({ action: 'delete_domain', domain })
           });
           showToast('Domain dihapus', 'mint');
-          loadAdminData();
+          if (currentSetupDomain === domain) {
+            document.getElementById('dnsSetupCard').style.display = 'none';
+          }
+          await loadAdminData();
         } catch (e) {
           showToast('Gagal hapus domain', 'error');
         }

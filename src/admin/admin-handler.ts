@@ -260,47 +260,114 @@ export async function handleAdminAction(request: Request, env: AdminEnv): Promis
     });
   }
 
+  // HELPER: Dual-DoH MX Resolution (Cloudflare + Google fallback)
+  async function resolveDomainMx(dom: string): Promise<{
+    live: boolean;
+    records: string[];
+    cfMxRecords: string[];
+    cfMxCount: number;
+    speedRating: 'turbo' | 'normal' | 'none';
+    speedLabel: string;
+    latencyMs: number;
+  }> {
+    const start = Date.now();
+    let records: string[] = [];
+
+    // 1. Try Cloudflare DoH first
+    try {
+      const cfUrl = `https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(dom)}&type=MX`;
+      const res = await fetch(cfUrl, { headers: { Accept: 'application/dns-json' } });
+      if (res.ok) {
+        const data: any = await res.json();
+        records = (data.Answer || []).map((ans: any) => String(ans.data || '').trim());
+      }
+    } catch {}
+
+    // 2. Fallback to Google DoH if Cloudflare had no answers or timed out
+    if (records.length === 0) {
+      try {
+        const googleUrl = `https://dns.google/resolve?name=${encodeURIComponent(dom)}&type=MX`;
+        const res = await fetch(googleUrl, { headers: { Accept: 'application/dns-json' } });
+        if (res.ok) {
+          const data: any = await res.json();
+          records = (data.Answer || []).map((ans: any) => String(ans.data || '').trim());
+        }
+      } catch {}
+    }
+
+    const latencyMs = Date.now() - start;
+    const cfMxRecords = records.filter((r: string) => /route[1-3]\.mx\.cloudflare\.net/i.test(r));
+    const hasCfMx = cfMxRecords.length > 0;
+    const cfMxCount = cfMxRecords.length;
+
+    const speedRating = cfMxCount >= 3 ? 'turbo' : (cfMxCount >= 1 ? 'normal' : 'none');
+    const speedLabel = cfMxCount >= 3
+      ? 'Turbo (3/3 MX Aktif — Kecepatan & Redundansi Maksimal)'
+      : (cfMxCount >= 1
+        ? `Aktif (${cfMxCount}/3 MX — Pasang MX 2 & 3 opsional biar makin kenceng)`
+        : (records.length > 0
+          ? `Terdeteksi ${records.length} MX non-Cloudflare (Arahkan ke route1/2/3.mx.cloudflare.net)`
+          : 'Belum Terpasang (Email tidak akan masuk)'));
+
+    return {
+      live: hasCfMx,
+      records,
+      cfMxRecords,
+      cfMxCount,
+      speedRating,
+      speedLabel,
+      latencyMs,
+    };
+  }
+
   // ADD DOMAIN
   if (action === 'add_domain') {
-    const domain = (body.domain || '').trim().toLowerCase();
+    let domain = (body.domain || '').trim().toLowerCase();
+    // Sanitize: strip http/https, leading @, slashes
+    domain = domain.replace(/^https?:\/\//i, '').replace(/^@/, '').replace(/\/.*$/, '').trim();
+
     const isDefault = Boolean(body.is_default);
 
-    if (!domain || !domain.includes('.')) {
+    if (!domain || !domain.includes('.') || domain.length < 3) {
       return new Response(JSON.stringify({ success: false, error: 'Format domain tidak valid' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' },
       });
     }
 
-    // Check MX immediately via DoH
-    let isMxLive = false;
-    let mxRecords: string[] = [];
-    try {
-      const dohUrl = `https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(domain)}&type=MX`;
-      const res = await fetch(dohUrl, { headers: { Accept: 'application/dns-json' } });
-      if (res.ok) {
-        const data: any = await res.json();
-        mxRecords = (data.Answer || []).map((ans: any) => ans.data);
-        isMxLive = mxRecords.length > 0;
-      }
-    } catch {}
+    // Determine suggested host for DNS setup (root = @, subdomain = prefix)
+    const parts = domain.split('.');
+    const multiPartTlds = ['co.id', 'biz.id', 'web.id', 'my.id', 'ac.id', 'sch.id', 'go.id', 'or.id', 'v6.rocks', 'v6.army', 'v6.navy', 'dns.army', 'dns.navy'];
+    const endsWithMultiPart = multiPartTlds.some(tld => domain.endsWith('.' + tld));
+    const isSubdomain = endsWithMultiPart ? parts.length > 3 : parts.length > 2;
+    const suggestedHost = isSubdomain ? parts[0] : '@';
 
-    // Add with is_active = 1 if MX detected, else 0 (pending)
+    // Check MX immediately via Dual-DoH
+    const mxResult = await resolveDomainMx(domain);
+
+    // Add with is_active = 1 if CF MX detected, else 0 (pending)
     await addDomain(env.DB, domain, isDefault);
-    if (!isMxLive) {
+    if (!mxResult.live) {
       await toggleDomainStatus(env.DB, domain, false).catch(() => {});
     }
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Domain ${domain} berhasil ditambahkan!`,
+        message: mxResult.live
+          ? `Domain ${domain} berhasil ditambahkan dan langsung AKTIF (MX terdeteksi)!`
+          : `Domain ${domain} berhasil ditambahkan (Status PENDING). Silakan pasang 3 MX di bawah.`,
         domain,
-        is_active: isMxLive,
-        mxRecords,
+        is_active: mxResult.live,
+        is_subdomain: isSubdomain,
+        suggested_host: suggestedHost,
+        mxRecords: mxResult.records,
+        cfMxRecords: mxResult.cfMxRecords,
+        cfMxCount: mxResult.cfMxCount,
+        speedLabel: mxResult.speedLabel,
         setupGuide: {
           type: 'MX',
-          host: '@',
+          host: suggestedHost,
           target: 'route1.mx.cloudflare.net',
           priority: 10,
         },
@@ -314,7 +381,8 @@ export async function handleAdminAction(request: Request, env: AdminEnv): Promis
 
   // DELETE DOMAIN
   if (action === 'delete_domain') {
-    const domain = (body.domain || '').trim().toLowerCase();
+    let domain = (body.domain || '').trim().toLowerCase();
+    domain = domain.replace(/^https?:\/\//i, '').replace(/^@/, '').replace(/\/.*$/, '').trim();
     const ok = await deleteDomain(env.DB, domain);
     return new Response(JSON.stringify({ success: ok, message: `Domain ${domain} dihapus` }), {
       status: 200,
@@ -322,71 +390,52 @@ export async function handleAdminAction(request: Request, env: AdminEnv): Promis
     });
   }
 
-  // TOGGLE DOMAIN
+  // TOGGLE DOMAIN (MANUAL OVERRIDE ADMIN)
   if (action === 'toggle_domain') {
-    const domain = (body.domain || '').trim().toLowerCase();
+    let domain = (body.domain || '').trim().toLowerCase();
+    domain = domain.replace(/^https?:\/\//i, '').replace(/^@/, '').replace(/\/.*$/, '').trim();
     const isActive = Boolean(body.is_active);
     const ok = await toggleDomainStatus(env.DB, domain, isActive);
-    return new Response(JSON.stringify({ success: ok, isActive }), {
+    return new Response(JSON.stringify({
+      success: ok,
+      domain,
+      is_active: isActive,
+      message: `Domain ${domain} berhasil di-${isActive ? 'aktifkan' : 'nonaktifkan'}!`
+    }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     });
   }
 
-  // CHECK DOMAIN LIVE / MX (DoH MX Resolution + Auto-Activate if MX exists)
+  // CHECK DOMAIN LIVE / MX (Dual-DoH Resolution + Auto-Activate if MX exists)
   if (action === 'check_domain_live' || action === 'check_domain_mx') {
-    const domain = (body.domain || '').trim().toLowerCase();
-    const dohUrl = `https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(domain)}&type=MX`;
+    let domain = (body.domain || '').trim().toLowerCase();
+    domain = domain.replace(/^https?:\/\//i, '').replace(/^@/, '').replace(/\/.*$/, '').trim();
 
-    const start = Date.now();
     try {
-      const res = await fetch(dohUrl, {
-        headers: { Accept: 'application/dns-json' },
-      });
-      const latency = Date.now() - start;
-
-      if (!res.ok) {
-        return new Response(
-          JSON.stringify({ success: false, error: `DNS query failed (${res.status})` }),
-          { status: 502, headers: { 'Content-Type': 'application/json' } }
-        );
-      }
-
-      const data: any = await res.json();
-      const records = (data.Answer || []).map((ans: any) => ans.data);
-      const cfMxRecords = records.filter((r: string) => /route[1-3]\.mx\.cloudflare\.net/i.test(r));
-      const hasCfMx = cfMxRecords.length > 0;
-      const cfMxCount = cfMxRecords.length;
+      const mxResult = await resolveDomainMx(domain);
 
       // Strict validation: Only auto-activate if MX explicitly points to Cloudflare Email Routing!
-      // Unverified non-CF MX or external unconfigured zones will NOT be auto-activated.
-      if (hasCfMx) {
-        // Double check against known unverified list to avoid activating unrouted third-party domains
+      if (mxResult.live) {
         const unroutedDomains = ['apkprem.v6.rocks', 'emailprem.v6.army', 'inboxfree.dns.army', 'inboxvip.dns.navy', 'mailprem.v6.navy', 'rzeromail.dynv6.net'];
         if (!unroutedDomains.includes(domain)) {
           await toggleDomainStatus(env.DB, domain, true).catch(() => {});
         }
       }
 
-      const speedRating = cfMxCount >= 3 ? 'turbo' : (cfMxCount >= 1 ? 'normal' : 'none');
-      const speedLabel = cfMxCount >= 3
-        ? '⚡ Turbo (3/3 MX Aktif — Kecepatan & Redundansi Maksimal)'
-        : (cfMxCount >= 1
-          ? `✅ Aktif (${cfMxCount}/3 MX — Pasang MX 2 & 3 opsional biar makin kenceng)`
-          : '❌ Belum Terpasang (Email tidak akan masuk)');
-
       return new Response(
         JSON.stringify({
           success: true,
           domain,
-          live: hasCfMx,
-          cfMxCount,
-          cfMxRecords,
-          speedRating,
-          speedLabel,
-          records,
-          latencyMs: latency,
-          autoActivated: hasCfMx && !['apkprem.v6.rocks', 'emailprem.v6.army', 'inboxfree.dns.army', 'inboxvip.dns.navy', 'mailprem.v6.navy', 'rzeromail.dynv6.net'].includes(domain),
+          live: mxResult.live,
+          active: mxResult.live,
+          cfMxCount: mxResult.cfMxCount,
+          cfMxRecords: mxResult.cfMxRecords,
+          speedRating: mxResult.speedRating,
+          speedLabel: mxResult.speedLabel,
+          records: mxResult.records,
+          latencyMs: mxResult.latencyMs,
+          autoActivated: mxResult.live,
         }),
         {
           status: 200,
