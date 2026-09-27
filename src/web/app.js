@@ -351,6 +351,80 @@ function renderLockedState() {
 
 let currentMessages = [];
 
+// Copy OTP directly from list card
+window.copyDirectOtp = function(code) {
+  if (!code) return;
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(code).then(() => {
+      showToast(`OTP disalin: ${code}`, 'mint');
+    }).catch(() => {
+      fallbackCopy(code);
+    });
+  } else {
+    fallbackCopy(code);
+  }
+};
+
+function fallbackCopy(text) {
+  try {
+    const el = document.createElement('textarea');
+    el.value = text;
+    el.style.position = 'fixed';
+    el.style.opacity = '0';
+    document.body.appendChild(el);
+    el.focus();
+    el.select();
+    document.execCommand('copy');
+    document.body.removeChild(el);
+    showToast(`OTP disalin: ${text}`, 'mint');
+  } catch (e) {
+    showToast(`Gagal menyalin: ${text}`, 'error');
+  }
+}
+
+function linkify(text) {
+  if (!text) return '';
+  const urlRegex = /(https?:\/\/[^\s<]+[^<.,:;"')\]\s])/g;
+  return escapeHtml(text).replace(urlRegex, '<a href="$1" target="_blank" rel="noopener noreferrer" style="color:#0284c7;text-decoration:underline;font-weight:700;word-break:break-all;">$1</a>');
+}
+
+function prepareEmailHtml(rawHtml, rawText) {
+  if (!rawHtml && !rawText) {
+    return '<div style="font-family:sans-serif;padding:16px;color:#64748b;">(Pesan kosong)</div>';
+  }
+  
+  if (!rawHtml) {
+    return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><base target="_blank"><style>body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;padding:16px;color:#121316;font-size:14px;line-height:1.5;word-break:break-word;white-space:pre-wrap;margin:0;}a{color:#0284c7;text-decoration:underline;font-weight:700;}</style></head><body>${linkify(rawText || '')}</body></html>`;
+  }
+
+  let html = rawHtml;
+
+  // 1. Inject <base target="_blank"> in head or at top
+  if (/<head[^>]*>/i.test(html)) {
+    html = html.replace(/<head[^>]*>/i, '$&<base target="_blank">');
+  } else {
+    html = `<base target="_blank">${html}`;
+  }
+
+  // 2. Ensure all <a> tags explicitly have target="_blank" and rel="noopener noreferrer"
+  html = html.replace(/<a\b([^>]*)>/gi, (match, attrs) => {
+    let newAttrs = attrs;
+    if (/target\s*=/i.test(newAttrs)) {
+      newAttrs = newAttrs.replace(/target\s*=\s*['"][^'"]*['"]/gi, 'target="_blank"');
+    } else {
+      newAttrs += ' target="_blank"';
+    }
+    if (/rel\s*=/i.test(newAttrs)) {
+      newAttrs = newAttrs.replace(/rel\s*=\s*['"][^'"]*['"]/gi, 'rel="noopener noreferrer"');
+    } else {
+      newAttrs += ' rel="noopener noreferrer"';
+    }
+    return `<a${newAttrs}>`;
+  });
+
+  return html;
+}
+
 function renderMessages(messages) {
   currentMessages = messages || [];
   const count = currentMessages.length;
@@ -375,16 +449,48 @@ function renderMessages(messages) {
   }
 
   messageListEl.innerHTML = messages.map(m => {
-    const otp = extractOtp(m.snippet || '', m.subject || '');
-    const timeStr = new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const rawDate = m.received_at || m.created_at || m.receivedAt;
+    let timeStr = '';
+    if (rawDate) {
+      const d = new Date(rawDate);
+      if (!isNaN(d.getTime())) {
+        timeStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      }
+    }
+    if (!timeStr) timeStr = 'Baru Saja';
+
+    // Strictly detect OTP from otp_code or snippet/subject
+    const otp = (m.otp_code && extractOtp(m.otp_code, m.subject || '')) || extractOtp(m.snippet || '', m.subject || '');
+
+    // Clean snippet preview (strip duplicate subject or excessive spaces)
+    let snippet = (m.snippet || '').trim();
+    if (m.subject && snippet.toLowerCase().startsWith(m.subject.toLowerCase())) {
+      snippet = snippet.slice(m.subject.length).trim();
+    }
+
     return `
       <div class="msg-item" onclick="openMessageDetail('${m.id}')">
-        <div class="msg-item-top">
-          <span class="msg-from">${escapeHtml(m.from_address)}</span>
-          <span class="msg-time">${timeStr}</span>
+        <div class="msg-item-header">
+          <div class="msg-subject">${escapeHtml(m.subject || '(Tanpa Subjek)')}</div>
+          <span class="msg-time-pill">${escapeHtml(timeStr)}</span>
         </div>
-        <div class="msg-subject">${escapeHtml(m.subject || '(Tanpa Subjek)')}</div>
-        ${otp ? `<div class="msg-otp-tag"><svg class="icon-svg" viewBox="0 0 24 24" width="13" height="13" fill="#121316" stroke="#121316" stroke-width="1.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> <span>OTP: <strong>${otp}</strong></span></div>` : ''}
+        ${snippet ? `<div class="msg-snippet">${escapeHtml(snippet)}</div>` : ''}
+        <div class="msg-footer">
+          ${otp ? `
+            <div class="msg-otp-tag">
+              <svg class="icon-svg" viewBox="0 0 24 24" width="13" height="13" fill="#121316" stroke="#121316" stroke-width="1.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+              <span>OTP: <strong>${escapeHtml(otp)}</strong></span>
+              <button class="msg-copy-otp-btn" onclick="event.stopPropagation(); copyDirectOtp('${escapeHtml(otp)}')" title="Salin Kode OTP">
+                <svg viewBox="0 0 24 24" width="10" height="10" stroke="currentColor" stroke-width="2.5" fill="none"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                <span>Salin</span>
+              </button>
+            </div>
+          ` : '<div></div>'}
+          <div class="msg-open-hint">
+            <span>Buka Pesan</span>
+            <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2.5" fill="none"><polyline points="9 18 15 12 9 6"/></svg>
+          </div>
+        </div>
       </div>
     `;
   }).join('');
@@ -444,8 +550,40 @@ async function openMessageDetail(id) {
     }
 
     const iframe = document.getElementById('modalIframe');
-    iframe.srcdoc = bodyHtml || `<div style="font-family:sans-serif;padding:16px;">${escapeHtml(bodyText || '')}</div>`;
-    document.getElementById('modalBodyTextContainer').textContent = bodyText || '(Tidak ada teks polos)';
+    iframe.srcdoc = prepareEmailHtml(bodyHtml, bodyText);
+
+    // Intercept link clicks inside iframe: Force opening in external browser window / tab
+    iframe.onload = () => {
+      try {
+        const doc = iframe.contentDocument || iframe.contentWindow.document;
+        if (!doc) return;
+        const links = doc.querySelectorAll('a');
+        links.forEach(a => {
+          a.setAttribute('target', '_blank');
+          a.setAttribute('rel', 'noopener noreferrer');
+          a.onclick = function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const href = a.getAttribute('href');
+            if (href && href !== '#' && !href.startsWith('javascript:')) {
+              window.open(href, '_blank', 'noopener,noreferrer');
+            }
+          };
+        });
+      } catch (err) {
+        console.warn('Iframe link handler boundary:', err);
+      }
+    };
+
+    const textContainer = document.getElementById('modalBodyTextContainer');
+    textContainer.innerHTML = linkify(bodyText || '(Tidak ada teks polos)');
+    textContainer.onclick = function(e) {
+      const a = e.target.closest('a');
+      if (a && a.href) {
+        e.preventDefault();
+        window.open(a.href, '_blank', 'noopener,noreferrer');
+      }
+    };
 
     // Reset view to HTML
     document.getElementById('modalBodyHtmlContainer').style.display = 'block';
