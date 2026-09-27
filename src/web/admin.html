@@ -3,6 +3,9 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
     <title>RZero Mail — Admin Console</title>
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23FFE81D' stroke='%23121316' stroke-width='4'/%3E%3Ctext x='32' y='42' font-family='sans-serif' font-size='22' font-weight='900' fill='%23121316' text-anchor='middle'%3EADM%3C/text%3E%3C/svg%3E" />
     <link rel="stylesheet" href="/styles.css" />
@@ -15,14 +18,29 @@
         align-items: center;
         justify-content: space-between;
       }
-      .admin-tabs {
+      .admin-tabs-wrapper {
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
         display: flex;
+        justify-content: center;
+        padding-bottom: 4px;
+        margin-bottom: 16px;
+      }
+      .admin-tabs-wrapper::-webkit-scrollbar {
+        display: none;
+      }
+      .admin-tabs {
+        display: inline-flex;
         gap: 6px;
         background-color: #fff;
         border: var(--border-w) solid var(--border);
         border-radius: var(--radius-full);
-        padding: 4px;
+        padding: 4px 6px;
         box-shadow: var(--shadow-sm);
+        white-space: nowrap;
+        flex-shrink: 0;
       }
       .admin-tab-btn {
         background: transparent;
@@ -34,11 +52,16 @@
         cursor: pointer;
         color: var(--text);
         transition: all 0.1s;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        white-space: nowrap;
+        flex-shrink: 0;
       }
       .admin-tab-btn.active {
         background-color: var(--yellow);
         border: var(--border-w) solid var(--border);
-        box-shadow: 1px 1px 0 var(--border);
+        box-shadow: 2px 2px 0 var(--border);
       }
       .admin-card {
         background-color: #fff;
@@ -58,11 +81,38 @@
         gap: 12px;
         margin-bottom: 16px;
       }
+      .admin-metric-grid-3 {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+        margin-bottom: 16px;
+      }
+      @media (max-width: 600px) {
+        .admin-metric-grid-3 {
+          grid-template-columns: repeat(2, 1fr);
+        }
+        .metric-box-span2 {
+          grid-column: 1 / -1 !important;
+        }
+        .admin-tabs-wrapper {
+          justify-content: flex-start;
+          padding: 2px 4px 6px;
+        }
+        .admin-card {
+          padding: 16px;
+        }
+      }
       .metric-box {
         border: var(--border-w) solid var(--border);
         border-radius: var(--radius-md);
         padding: 14px;
         box-shadow: var(--shadow-sm);
+      }
+      .toast-error {
+        background-color: #FF5A5F !important;
+        color: #FFFFFF !important;
+        border: var(--border-w) solid var(--border) !important;
+        box-shadow: var(--shadow-md) !important;
       }
       .metric-label {
         font-size: 0.72rem;
@@ -170,7 +220,7 @@
       <div id="dashboardSection" style="display: none;">
 
         <!-- TABS NAV -->
-        <div style="display: flex; justify-content: center; margin-bottom: 16px;">
+        <div class="admin-tabs-wrapper">
           <div class="admin-tabs">
             <button class="admin-tab-btn active" data-tab="overview">
               <svg class="icon-svg" viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2.5" fill="none"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
@@ -179,6 +229,10 @@
             <button class="admin-tab-btn" data-tab="domains">
               <svg class="icon-svg" viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2.5" fill="none"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
               <span>Domain Mail</span>
+            </button>
+            <button class="admin-tab-btn" data-tab="leaderboard">
+              <svg class="icon-svg" viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2.5" fill="none"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.45 1-1 1H7c-.55 0-1-.45-1-1v-2.34"/><path d="M18 14.66V17c0 .55-.45 1-1 1h-2c-.55 0-1-.45-1-1v-2.34"/><path d="M14 2h-4v7a4 4 0 0 0 8 0V2h-4z"/></svg>
+              <span>Leaderboard</span>
             </button>
             <button class="admin-tab-btn" data-tab="ads">
               <svg class="icon-svg" viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2.5" fill="none"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
@@ -224,13 +278,17 @@
             </div>
           </div>
 
-          <div class="admin-card">
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-              <h3 style="font-family: 'Space Grotesk', sans-serif; font-weight: 900; font-size: 1.05rem;">Pintasan Cepat</h3>
+          <!-- Quick Preview Leaderboard on Overview -->
+          <div class="admin-card" id="overviewLeaderboardWidget">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 1.15rem;">🏆</span>
+                <h3 style="font-family: 'Space Grotesk', sans-serif; font-weight: 900; font-size: 1rem; color: var(--text);">Top Provider Email Masuk</h3>
+              </div>
+              <button class="btn-brutal btn-brutal-mint" onclick="switchTab('leaderboard')" style="padding: 4px 10px; font-size: 0.72rem;">LIHAT DETAIL &rarr;</button>
             </div>
-            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-              <button class="btn-brutal btn-brutal-yellow" onclick="switchTab('domains')">➕ Kelola Domain</button>
-              <button class="btn-brutal btn-brutal-mint" onclick="switchTab('logs')">👀 Pantau Traffic</button>
+            <div id="overviewLeaderboardPreview" style="display: flex; flex-direction: column; gap: 6px;">
+              <div style="font-size: 0.78rem; font-weight: 600; color: var(--text-muted); text-align: center; padding: 12px;">Memuat statistik provider...</div>
             </div>
           </div>
         </div>
@@ -243,7 +301,7 @@
               Domain diverifikasi otomatis via Dual-DoH (Cloudflare + Google DNS). Begitu 3 MX record diarahkan, status otomatis <strong>AKTIF</strong> dan langsung muncul di pilihan user!
             </p>
             <div style="display: flex; gap: 8px;">
-              <input type="text" id="newDomainInput" class="input-brutal" placeholder="contoh: rzmail.my.id atau sub.domain.com" style="flex: 2;" />
+              <input type="text" id="newDomainInput" class="input-brutal" placeholder="Masukkan nama domain (misal: domain.com)" style="flex: 2;" />
               <button class="btn-brutal btn-brutal-mint" id="btnAddDomain" style="flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
                 <svg class="icon-svg" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2.5" fill="none"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                 <span>Tambah</span>
@@ -361,18 +419,76 @@
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
               <div>
                 <h3 style="font-family: 'Space Grotesk', sans-serif; font-weight: 900; font-size: 1.1rem; margin: 0;">Daftar Domain Terdaftar</h3>
-                <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 700; margin-top: 2px;" id="domainCountSub">24 Domain Terpasang</div>
+                <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 700; margin-top: 2px;" id="domainCountSub">Memuat daftar domain...</div>
               </div>
               <button class="btn-brutal btn-brutal-yellow" onclick="loadAdminData()" style="padding: 6px 12px; font-size: 0.78rem;">
                 <svg class="icon-svg" viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2.5" fill="none"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
                 <span>REFRESH</span>
               </button>
             </div>
-            <div id="domainCardsContainer" style="display: flex; flex-direction: column; gap: 8px; max-height: 480px; overflow-y: auto; padding: 2px;"></div>
+            <div id="domainCardsContainer" style="display: flex; flex-direction: column; gap: 8px; max-height: 520px; overflow-y: auto; padding: 2px;">
+              <div style="text-align: center; color: var(--text-muted); padding: 20px; font-weight: 700; font-size: 0.82rem;">Memuat daftar domain...</div>
+            </div>
           </div>
         </div>
 
-        <!-- TAB 3: ADS & MONETIZATION -->
+        <!-- TAB: LEADERBOARD PROVIDER EMAIL (ADMIN ONLY) -->
+        <div class="tab-pane" id="pane-leaderboard" style="display: none;">
+          <!-- Top Stats Row -->
+          <div class="admin-metric-grid-3">
+            <div class="metric-box admin-card-yellow">
+              <div class="metric-label">
+                <svg class="icon-svg" viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2.5" fill="none"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+                <span>TOTAL EMAIL MASUK</span>
+              </div>
+              <div class="metric-val" id="lbTotalEmails">0</div>
+            </div>
+            <div class="metric-box admin-card-mint">
+              <div class="metric-label">
+                <svg class="icon-svg" viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2.5" fill="none"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                <span>PROVIDER TERDETEKSI</span>
+              </div>
+              <div class="metric-val" id="lbTotalProviders">0</div>
+            </div>
+            <div class="metric-box metric-box-span2" style="background-color: var(--purple);">
+              <div class="metric-label">
+                <svg class="icon-svg" viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2.5" fill="none"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                <span>EMAIL KATEGORI OTHER</span>
+              </div>
+              <div class="metric-val" id="lbTotalOther">0</div>
+            </div>
+          </div>
+
+          <!-- Leaderboard List Card -->
+          <div class="admin-card">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px; gap: 10px;">
+              <div>
+                <h3 style="font-family: 'Space Grotesk', sans-serif; font-weight: 900; font-size: 1.1rem; color: var(--text); margin: 0;">
+                  🏆 Leaderboard Provider
+                </h3>
+                <div style="font-size: 0.75rem; font-weight: 600; color: var(--text-muted); margin-top: 3px;">
+                  Urutan platform yang paling sering mengirim email ke RZero Mail
+                </div>
+              </div>
+              <button class="btn-brutal btn-brutal-yellow" onclick="loadLeaderboardData()" style="padding: 6px 12px; font-size: 0.74rem; flex-shrink: 0;">
+                <svg class="icon-svg" viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2.5" fill="none"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+                <span>REFRESH</span>
+              </button>
+            </div>
+
+            <!-- Container for Ranked Providers -->
+            <div id="leaderboardListContainer" style="display: flex; flex-direction: column; gap: 10px;">
+              <div style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); text-align: center; padding: 20px;">
+                Memuat data leaderboard...
+              </div>
+            </div>
+
+            <!-- Distinct 'Other' Provider Card -->
+            <div id="otherProviderCard" style="margin-top: 14px;"></div>
+          </div>
+        </div>
+
+        <!-- TAB 4: ADS & MONETIZATION -->
         <div class="tab-pane" id="pane-ads" style="display: none;">
           <!-- Slot 1: Main Banner -->
           <div class="admin-card admin-card-yellow" style="margin-bottom: 20px;">
@@ -535,6 +651,17 @@
     <div class="toast-container" id="toastContainer"></div>
 
     <script>
+      function escapeHtml(str) {
+        if (str === null || str === undefined) return '';
+        return String(str)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+      }
+      window.escapeHtml = escapeHtml;
+
       let tempChallengeToken = null;
 
       function showToast(msg, type = 'info') {
@@ -617,6 +744,10 @@
         });
         if (tabId === 'ads') loadAdsAdmin();
         if (tabId === 'logs') loadAdminData();
+        if (tabId === 'leaderboard') {
+          if (!window.currentLeaderboard) loadLeaderboardData();
+          else renderLeaderboardUI(window.currentLeaderboard);
+        }
       }
       window.switchTab = switchTab;
       document.querySelectorAll('.admin-tab-btn').forEach(b => {
@@ -651,49 +782,64 @@
           document.getElementById('metricInboxes').textContent = m.total_inboxes || 0;
           document.getElementById('metricLocked').textContent = m.locked_inboxes || 0;
 
-          // Domains
-          const doms = (d.domains || []).sort((a, b) => a.domain.localeCompare(b.domain));
-          const domainSub = document.getElementById('domainCountSub');
-          if (domainSub) domainSub.textContent = `${doms.length} Domain Terpasang`;
-
-          const domContainer = document.getElementById('domainCardsContainer');
-          if (domContainer) {
-            if (doms.length === 0) {
-              domContainer.innerHTML = `
-                <div style="text-align: center; padding: 32px 16px; border: var(--border-w) dashed var(--border); border-radius: var(--radius-md); color: var(--text-muted); font-weight: 700;">
-                  Belum ada domain mail yang ditambahkan.
-                </div>
-              `;
-            } else {
-              domContainer.innerHTML = doms.map(dm => `
-                <div style="background: #fff; border: var(--border-w) solid var(--border); border-radius: var(--radius-md); box-shadow: var(--shadow-sm); padding: 10px 12px; display: flex; flex-direction: column; gap: 8px;">
-                  <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <span style="font-family: 'Space Grotesk', sans-serif; font-weight: 900; font-size: 0.98rem; color: var(--text);">@${dm.domain}</span>
-                    <span onclick="toggleDomain('${dm.domain}', ${dm.is_active ? 1 : 0})" class="pill-badge ${dm.is_active ? 'pill-mint' : 'pill-yellow'}" style="font-size: 0.72rem; font-weight: 900; padding: 2px 8px; cursor: pointer; user-select: none;" title="Klik untuk ubah status">
-                      ${dm.is_active ? 'AKTIF' : 'PENDING'}
-                    </span>
-                  </div>
-                  <div style="display: flex; gap: 6px; flex-wrap: wrap;">
-                    <button class="btn-brutal btn-brutal-mint" onclick="openMxSetup('${dm.domain}')" style="flex: 1.5; padding: 6px 8px; font-size: 0.74rem; font-weight: 900; display: inline-flex; align-items: center; justify-content: center; gap: 4px;">
-                      <svg class="icon-svg" viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2.5" fill="none"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-                      <span>ATUR MX</span>
-                    </button>
-                    <button class="btn-brutal btn-brutal-yellow" onclick="checkDomainMx('${dm.domain}')" style="flex: 1.2; padding: 6px 8px; font-size: 0.74rem; font-weight: 900; display: inline-flex; align-items: center; justify-content: center; gap: 4px;">
-                      <svg class="icon-svg" viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2.5" fill="none"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-                      <span>CEK MX</span>
-                    </button>
-                    <button class="btn-brutal ${dm.is_active ? 'btn-brutal-white' : 'btn-brutal-mint'}" onclick="toggleDomain('${dm.domain}', ${dm.is_active ? 1 : 0})" style="flex: 1.5; padding: 6px 8px; font-size: 0.74rem; font-weight: 900; display: inline-flex; align-items: center; justify-content: center; gap: 4px;">
-                      <svg class="icon-svg" viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2.5" fill="none"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>
-                      <span>${dm.is_active ? 'NONAKTIFKAN' : 'AKTIFKAN'}</span>
-                    </button>
-                    <button class="btn-brutal btn-brutal-red" onclick="deleteDomain('${dm.domain}')" style="flex: 0.8; padding: 6px 8px; font-size: 0.74rem; font-weight: 900; display: inline-flex; align-items: center; justify-content: center; gap: 4px;">
-                      <svg class="icon-svg" viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2.5" fill="none"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                      <span>HAPUS</span>
-                    </button>
-                  </div>
-                </div>
-              `).join('');
+          // Leaderboard Provider
+          try {
+            if (d.leaderboard) {
+              window.currentLeaderboard = d.leaderboard;
+              renderLeaderboardUI(d.leaderboard);
             }
+          } catch (e) {
+            console.error('Leaderboard render error:', e);
+          }
+
+          // Domains
+          try {
+            const doms = (d.domains || []).sort((a, b) => a.domain.localeCompare(b.domain));
+            const activeCount = doms.filter(x => x.is_active).length;
+            const domainSub = document.getElementById('domainCountSub');
+            if (domainSub) domainSub.textContent = `${doms.length} Domain Terpasang (${activeCount} Aktif)`;
+
+            const domContainer = document.getElementById('domainCardsContainer');
+            if (domContainer) {
+              if (doms.length === 0) {
+                domContainer.innerHTML = `
+                  <div style="text-align: center; padding: 32px 16px; border: var(--border-w) dashed var(--border); border-radius: var(--radius-md); color: var(--text-muted); font-weight: 700;">
+                    Belum ada domain mail yang ditambahkan.
+                  </div>
+                `;
+              } else {
+                domContainer.innerHTML = doms.map(dm => `
+                  <div style="background: #fff; border: var(--border-w) solid var(--border); border-radius: var(--radius-md); box-shadow: var(--shadow-sm); padding: 10px 12px; display: flex; flex-direction: column; gap: 8px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                      <span style="font-family: 'Space Grotesk', sans-serif; font-weight: 900; font-size: 0.98rem; color: var(--text);">@${escapeHtml(dm.domain)}</span>
+                      <span onclick="toggleDomain('${escapeHtml(dm.domain)}', ${dm.is_active ? 1 : 0})" class="pill-badge ${dm.is_active ? 'pill-mint' : 'pill-yellow'}" style="font-size: 0.72rem; font-weight: 900; padding: 2px 8px; cursor: pointer; user-select: none;" title="Klik untuk ubah status">
+                        ${dm.is_active ? 'AKTIF' : 'PENDING'}
+                      </span>
+                    </div>
+                    <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                      <button class="btn-brutal btn-brutal-mint" onclick="openMxSetup('${escapeHtml(dm.domain)}')" style="flex: 1.5; padding: 6px 8px; font-size: 0.74rem; font-weight: 900; display: inline-flex; align-items: center; justify-content: center; gap: 4px;">
+                        <svg class="icon-svg" viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2.5" fill="none"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                        <span>ATUR MX</span>
+                      </button>
+                      <button class="btn-brutal btn-brutal-yellow" onclick="checkDomainMx('${escapeHtml(dm.domain)}')" style="flex: 1.2; padding: 6px 8px; font-size: 0.74rem; font-weight: 900; display: inline-flex; align-items: center; justify-content: center; gap: 4px;">
+                        <svg class="icon-svg" viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2.5" fill="none"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                        <span>CEK MX</span>
+                      </button>
+                      <button class="btn-brutal ${dm.is_active ? 'btn-brutal-white' : 'btn-brutal-mint'}" onclick="toggleDomain('${escapeHtml(dm.domain)}', ${dm.is_active ? 1 : 0})" style="flex: 1.5; padding: 6px 8px; font-size: 0.74rem; font-weight: 900; display: inline-flex; align-items: center; justify-content: center; gap: 4px;">
+                        <svg class="icon-svg" viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2.5" fill="none"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>
+                        <span>${dm.is_active ? 'NONAKTIFKAN' : 'AKTIFKAN'}</span>
+                      </button>
+                      <button class="btn-brutal btn-brutal-red" onclick="deleteDomain('${escapeHtml(dm.domain)}')" style="flex: 0.8; padding: 6px 8px; font-size: 0.74rem; font-weight: 900; display: inline-flex; align-items: center; justify-content: center; gap: 4px;">
+                        <svg class="icon-svg" viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2.5" fill="none"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                        <span>HAPUS</span>
+                      </button>
+                    </div>
+                  </div>
+                `).join('');
+              }
+            }
+          } catch (e) {
+            console.error('Domains render error:', e);
           }
 
           // Logs
@@ -743,6 +889,296 @@
 
         } catch (e) {
           console.error(e);
+        }
+      }
+
+      // ==========================================
+      // LEADERBOARD PROVIDER FUNCTIONS (ADMIN ONLY)
+      // ==========================================
+      window.currentLeaderboard = null;
+      window.otherDrawerOpen = false;
+      window.currentOtherFilter = '';
+
+      async function loadLeaderboardData() {
+        try {
+          const res = await fetch('/admin/action', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'get_leaderboard' })
+          });
+          if (res.status === 401) {
+            showToast('Sesi admin berakhir, silakan login ulang', 'error');
+            document.getElementById('loginCard').style.display = 'block';
+            document.getElementById('dashboardSection').style.display = 'none';
+            document.getElementById('authNavControls').style.display = 'none';
+            return;
+          }
+          const d = await res.json();
+          if (d.success && d.leaderboard) {
+            window.currentLeaderboard = d.leaderboard;
+            renderLeaderboardUI(d.leaderboard);
+            showToast('Leaderboard diperbarui!', 'mint');
+          } else {
+            showToast(d.message || 'Gagal memuat leaderboard', 'error');
+          }
+        } catch (e) {
+          console.error('Leaderboard fetch error:', e);
+          showToast('Koneksi terputus: ' + (e.message || 'error'), 'error');
+        }
+      }
+      window.loadLeaderboardData = loadLeaderboardData;
+
+      function renderOtherCards(senders) {
+        if (!senders || senders.length === 0) {
+          return `
+            <div style="text-align: center; color: var(--text-muted); padding: 18px; font-weight: 700; font-size: 0.8rem; background: var(--canvas, #fdfbf7); border: var(--border-w) dashed var(--border); border-radius: 8px;">
+              Tidak ada email pengirim yang cocok dengan filter pencarian.
+            </div>
+          `;
+        }
+        return senders.map(s => `
+          <div style="background: var(--canvas, #fdfbf7); border: var(--border-w) solid var(--border); border-radius: 8px; padding: 10px 12px; display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap;">
+            <div style="min-width: 0; flex: 1;">
+              <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; font-weight: 700; word-break: break-all; color: var(--text);">
+                ${escapeHtml(s.address)}
+              </div>
+              <div style="display: flex; align-items: center; gap: 6px; margin-top: 4px; flex-wrap: wrap;">
+                <span class="pill-badge pill-white" style="font-size: 0.68rem; font-weight: 800;">@${escapeHtml(s.domain)}</span>
+                <span class="pill-badge pill-yellow" style="font-size: 0.68rem; font-weight: 900;">${s.count} pesan (${s.percentage}%)</span>
+              </div>
+            </div>
+            <button class="btn-brutal btn-brutal-mint" onclick="copySenderEmail('${escapeHtml(s.address)}')" style="padding: 4px 10px; font-size: 0.72rem; font-weight: 800; white-space: nowrap; flex-shrink: 0;">
+              📋 SALIN
+            </button>
+          </div>
+        `).join('');
+      }
+
+      function toggleOtherDrawer() {
+        window.otherDrawerOpen = !window.otherDrawerOpen;
+        const drawer = document.getElementById('otherSendersDrawer');
+        const btn = document.getElementById('otherToggleBtn');
+        if (drawer) drawer.style.display = window.otherDrawerOpen ? 'block' : 'none';
+        if (btn) btn.textContent = window.otherDrawerOpen ? 'TUTUP ▲' : 'LIHAT EMAIL ▼';
+      }
+      window.toggleOtherDrawer = toggleOtherDrawer;
+
+      function filterOtherSenders(query) {
+        window.currentOtherFilter = (query || '').toLowerCase().trim();
+        if (!window.currentLeaderboard || !window.currentLeaderboard.other) return;
+        const allSenders = window.currentLeaderboard.other.senders || [];
+        const filtered = window.currentOtherFilter
+          ? allSenders.filter(s => s.address.toLowerCase().includes(window.currentOtherFilter) || s.domain.toLowerCase().includes(window.currentOtherFilter))
+          : allSenders;
+        const container = document.getElementById('otherSendersCardsContainer');
+        if (container) container.innerHTML = renderOtherCards(filtered);
+      }
+      window.filterOtherSenders = filterOtherSenders;
+
+      function copySenderEmail(email) {
+        navigator.clipboard.writeText(email);
+        showToast('Email disalin: ' + email, 'mint');
+      }
+      window.copySenderEmail = copySenderEmail;
+
+      function toggleProviderSenders(id) {
+        const el = document.getElementById('prov-senders-' + id);
+        const btn = document.getElementById('prov-btn-' + id);
+        if (!el) return;
+        const isOpen = el.style.display !== 'none';
+        el.style.display = isOpen ? 'none' : 'block';
+        if (btn) btn.textContent = isOpen ? 'DETAIL ▼' : 'TUTUP ▲';
+      }
+      window.toggleProviderSenders = toggleProviderSenders;
+
+      function renderLeaderboardUI(lb) {
+        try {
+          if (!lb) return;
+
+        // Metric Counters
+        const lbTotalEmails = document.getElementById('lbTotalEmails');
+        const lbTotalProviders = document.getElementById('lbTotalProviders');
+        const lbTotalOther = document.getElementById('lbTotalOther');
+        if (lbTotalEmails) lbTotalEmails.textContent = lb.total_emails || 0;
+        if (lbTotalProviders) lbTotalProviders.textContent = (lb.providers || []).length;
+        if (lbTotalOther) lbTotalOther.textContent = `${lb.other?.count || 0} (${lb.other?.percentage || 0}%)`;
+
+        // Overview Widget Preview
+        const previewEl = document.getElementById('overviewLeaderboardPreview');
+        if (previewEl) {
+          const top3 = (lb.providers || []).slice(0, 3);
+          if (top3.length === 0 && (!lb.other || lb.other.count === 0)) {
+            previewEl.innerHTML = `<div style="font-size: 0.78rem; font-weight: 600; color: var(--text-muted); text-align: center; padding: 8px;">Belum ada email yang masuk.</div>`;
+          } else {
+            let previewHtml = top3.map((p, idx) => {
+              const rankIcons = ['🥇 #1', '🥈 #2', '🥉 #3'];
+              return `
+                <div style="display: flex; justify-content: space-between; align-items: center; background: #fff; border: 1.5px solid var(--border); border-radius: 8px; padding: 6px 10px;">
+                  <div style="display: flex; align-items: center; gap: 8px; min-width: 0;">
+                    <span style="font-size: 0.8rem; font-weight: 900; flex-shrink: 0;">${rankIcons[idx] || '#' + (idx + 1)}</span>
+                    <span style="font-family: 'Space Grotesk', sans-serif; font-weight: 800; font-size: 0.86rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(p.name)}</span>
+                    <span class="pill-badge pill-mint" style="font-size: 0.6rem; padding: 1px 5px; flex-shrink: 0;">${escapeHtml(p.category)}</span>
+                  </div>
+                  <span class="pill-badge pill-yellow" style="font-size: 0.74rem; font-weight: 900; padding: 2px 7px; flex-shrink: 0;">
+                    ${p.count} (${p.percentage}%)
+                  </span>
+                </div>
+              `;
+            }).join('');
+
+            if (lb.other && lb.other.count > 0) {
+              previewHtml += `
+                <div style="display: flex; justify-content: space-between; align-items: center; background: var(--purple, #C8B6FF); border: 1.5px solid var(--border); border-radius: 8px; padding: 6px 10px; cursor: pointer;" onclick="switchTab('leaderboard'); if(!window.otherDrawerOpen) toggleOtherDrawer();">
+                  <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 0.9rem;">❓</span>
+                    <span style="font-family: 'Space Grotesk', sans-serif; font-weight: 800; font-size: 0.86rem;">Other (Unknown)</span>
+                    <span class="pill-badge pill-pink" style="font-size: 0.6rem; padding: 1px 5px;">${lb.other.senders.length} Pengirim</span>
+                  </div>
+                  <div style="display: flex; align-items: center; gap: 6px;">
+                    <span class="pill-badge pill-yellow" style="font-size: 0.74rem; font-weight: 900; padding: 2px 7px;">
+                      ${lb.other.count} (${lb.other.percentage}%)
+                    </span>
+                    <span style="font-size: 0.68rem; font-weight: 900; text-decoration: underline;">LIHAT &rarr;</span>
+                  </div>
+                </div>
+              `;
+            }
+            previewEl.innerHTML = previewHtml;
+          }
+        }
+
+        // Leaderboard Tab: List of Ranked Providers
+        const container = document.getElementById('leaderboardListContainer');
+        if (container) {
+          const provs = lb.providers || [];
+          if (provs.length === 0) {
+            container.innerHTML = `
+              <div style="text-align: center; padding: 20px 14px; border: var(--border-w) dashed var(--border); border-radius: var(--radius-md); color: var(--text-muted); font-weight: 700; font-size: 0.82rem;">
+                Belum ada provider resmi yang terdeteksi dari email masuk.
+              </div>
+            `;
+          } else {
+            container.innerHTML = provs.map((p, idx) => {
+              const isTop1 = idx === 0;
+              const isTop2 = idx === 1;
+              const isTop3 = idx === 2;
+              const rankIcon = isTop1 ? '🥇 #1' : (isTop2 ? '🥈 #2' : (isTop3 ? '🥉 #3' : `#${idx + 1}`));
+              const rankBg = isTop1 ? 'var(--yellow)' : (isTop2 ? 'var(--cyan)' : (isTop3 ? 'var(--pink)' : '#fff'));
+              const barBg = isTop1 ? 'var(--yellow)' : (isTop2 ? 'var(--cyan)' : (isTop3 ? 'var(--pink)' : 'var(--mint)'));
+              const safeId = 'p_' + idx;
+
+              return `
+                <div style="background: #fff; border: var(--border-w) solid var(--border); border-radius: var(--radius-md); box-shadow: var(--shadow-sm); padding: 12px 14px;">
+                  <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                      <div style="background: ${rankBg}; color: var(--text); border: var(--border-w) solid var(--border); border-radius: 8px; padding: 3px 7px; font-weight: 900; font-size: 0.84rem; box-shadow: var(--shadow-sm); min-width: 44px; text-align: center; flex-shrink: 0;">
+                        ${rankIcon}
+                      </div>
+                      <div>
+                        <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                          <span style="font-family: 'Space Grotesk', sans-serif; font-weight: 900; font-size: 0.98rem; color: var(--text);">${escapeHtml(p.name)}</span>
+                          <span class="pill-badge pill-mint" style="font-size: 0.62rem; font-weight: 800; padding: 1px 6px;">${escapeHtml(p.category)}</span>
+                        </div>
+                        <div style="font-size: 0.72rem; font-weight: 600; color: var(--text-muted); margin-top: 2px;">
+                          ${p.senders.length} pengirim terdeteksi
+                        </div>
+                      </div>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                      <span class="pill-badge pill-yellow" style="font-size: 0.78rem; font-weight: 900; padding: 3px 8px;">
+                        ${p.count} Pesan (${p.percentage}%)
+                      </span>
+                      <button class="btn-brutal" id="prov-btn-${safeId}" style="padding: 3px 8px; font-size: 0.7rem; background: var(--canvas);" onclick="toggleProviderSenders('${safeId}')">
+                        DETAIL ▼
+                      </button>
+                    </div>
+                  </div>
+                  <!-- Progress Bar -->
+                  <div style="height: 6px; width: 100%; background: #eee; border: 1.5px solid var(--border); border-radius: 4px; overflow: hidden; margin-top: 8px;">
+                    <div style="height: 100%; width: ${Math.max(2, p.percentage)}%; background: ${barBg};"></div>
+                  </div>
+                  <!-- Expandable Senders List -->
+                  <div id="prov-senders-${safeId}" style="display: none; margin-top: 8px; border-top: 1.5px dashed var(--border); padding-top: 8px;">
+                    <div style="font-size: 0.7rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; margin-bottom: 4px;">Alamat Pengirim:</div>
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                      ${p.senders.map(s => `
+                        <div style="display: flex; justify-content: space-between; align-items: center; background: var(--canvas); padding: 4px 8px; border-radius: 6px; font-size: 0.74rem; border: 1px solid var(--border); gap: 6px;">
+                          <span style="font-family: 'JetBrains Mono', monospace; font-weight: 700; word-break: break-all;">${escapeHtml(s.address)}</span>
+                          <span class="pill-badge pill-yellow" style="font-size: 0.65rem; font-weight: 900; padding: 1px 5px; flex-shrink: 0;">${s.count} pesan</span>
+                        </div>
+                      `).join('')}
+                    </div>
+                  </div>
+                </div>
+              `;
+            }).join('');
+          }
+        }
+
+        // Leaderboard Tab: Other Provider Card (Core Requirement)
+        const otherCardEl = document.getElementById('otherProviderCard');
+        if (otherCardEl) {
+          const other = lb.other || { count: 0, percentage: 0, senders: [] };
+          otherCardEl.innerHTML = `
+            <div style="border: var(--border-w) solid var(--border); border-radius: var(--radius-md); box-shadow: var(--shadow-sm); overflow: hidden;">
+              <!-- Clickable Card Header -->
+              <div id="otherCardMain" onclick="toggleOtherDrawer()" style="background: var(--purple, #C8B6FF); padding: 12px 14px; cursor: pointer; user-select: none;">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                  <div style="display: flex; align-items: center; gap: 10px;">
+                    <div style="width: 36px; height: 36px; background: #fff; border: var(--border-w) solid var(--border); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 1.1rem; box-shadow: var(--shadow-sm); flex-shrink: 0;">
+                      ❓
+                    </div>
+                    <div>
+                      <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                        <span style="font-family: 'Space Grotesk', sans-serif; font-weight: 900; font-size: 0.98rem; color: var(--text);">Other (Provider Lainnya)</span>
+                        <span class="pill-badge pill-pink" style="font-size: 0.62rem; font-weight: 900; padding: 1px 6px;">UNKNOWN</span>
+                      </div>
+                      <div style="font-size: 0.74rem; font-weight: 700; color: var(--text); margin-top: 2px;">
+                        ${other.senders.length} pengirim unik &bull; <span style="text-decoration: underline; font-weight: 900;">👉 KLIK UNTUK LIHAT EMAIL</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div style="display: flex; align-items: center; gap: 8px;">
+                    <span class="pill-badge pill-yellow" style="font-size: 0.8rem; font-weight: 900; padding: 4px 10px; border: var(--border-w) solid var(--border);">
+                      ${other.count} Pesan (${other.percentage}%)
+                    </span>
+                    <button class="btn-brutal btn-brutal-yellow" id="otherToggleBtn" style="padding: 5px 10px; font-size: 0.72rem; pointer-events: none;">
+                      ${window.otherDrawerOpen ? 'TUTUP ▲' : 'LIHAT EMAIL ▼'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Expandable Drawer for Other Senders -->
+              <div id="otherSendersDrawer" style="display: ${window.otherDrawerOpen ? 'block' : 'none'}; border-top: var(--border-w) solid var(--border); background: #fff; padding: 14px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
+                  <div>
+                    <div style="font-family: 'Space Grotesk', sans-serif; font-weight: 900; font-size: 0.95rem; color: var(--text);">
+                      📧 Email Pengirim Kategori "Other" (${other.senders.length})
+                    </div>
+                    <div style="font-size: 0.72rem; font-weight: 600; color: var(--text-muted); margin-top: 1px;">
+                      Alamat email di luar daftar provider resmi RZero Mail
+                    </div>
+                  </div>
+                  <div style="width: 100%; max-width: 220px;">
+                    <input type="text" id="otherSearchInput" oninput="filterOtherSenders(this.value)" placeholder="Cari email / domain..." class="input-brutal" style="width: 100%; padding: 5px 8px; font-size: 0.76rem;">
+                  </div>
+                </div>
+
+                <!-- Cards list of Senders (Mobile-First, No ugly horizontal scroll!) -->
+                <div id="otherSendersCardsContainer" style="display: flex; flex-direction: column; gap: 8px;">
+                  ${renderOtherCards(other.senders)}
+                </div>
+              </div>
+            </div>
+          `;
+        }
+        } catch (err) {
+          console.error('renderLeaderboardUI error:', err);
+          const container = document.getElementById('leaderboardListContainer');
+          if (container) {
+            container.innerHTML = `<div style="text-align: center; color: var(--text); padding: 18px; font-weight: 700; font-size: 0.82rem; background: var(--canvas, #fdfbf7); border: var(--border-w) solid var(--border); border-radius: 8px;">Gagal menampilkan leaderboard: ${escapeHtml(err.message)}</div>`;
+          }
         }
       }
 

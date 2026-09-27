@@ -24,8 +24,10 @@ import {
   getTrafficStats,
   getPublicAds,
   recordAdClick,
+  insertMessage,
 } from '../db/queries';
 import { generateUniqueAddress } from '../utils/random-address';
+import { extractOtpCode } from '../utils/crypto';
 
 import { antiDdosMiddleware } from '../middleware/anti-ddos';
 
@@ -35,6 +37,7 @@ export interface ApiEnv {
   MAIL_DOMAIN?: string;
   WEB_HOST?: string;
   ADMIN_TOKEN?: string;
+  ADMIN_SECRET?: string;
 }
 
 function getEnvDomains(env: ApiEnv): string[] {
@@ -119,6 +122,7 @@ api.get('/domains', async (c) => {
   if (domains.length === 0) {
     domains = getEnvDomains(c.env);
   }
+  c.header('Cache-Control', 'public, max-age=300, s-maxage=600');
   return c.json({ domains });
 });
 
@@ -599,14 +603,43 @@ api.get('/messages/:address', async (c) => {
   });
 });
 
+// ---- GET /api/messages (Shorthand Bot Endpoint dengan Lock Guard) ----
 api.get('/messages', async (c) => {
-  const address = (c.req.query('address') || c.req.query('email') || c.req.query('inbox') || '').trim().toLowerCase();
+  const address = (
+    c.req.query('address') ||
+    c.req.query('email') ||
+    c.req.query('inbox') ||
+    ''
+  ).trim().toLowerCase();
+
   if (!address) {
-    return c.json({ error: 'Missing address query (?address=user@zallpyx.xyz)' }, 400);
+    return c.json({ error: 'Missing address query (?address=user@rzmail.my.id)' }, 400);
   }
+
   const sid = getSessionId(c);
   const inbox = await getInbox(c.env.DB, address);
-  if (!inbox) return c.json({ address, messages: [] });
+  if (!inbox) return c.json({ success: true, address, isLocked: false, count: 0, messages: [] });
+
+  // [DEFENSIVE FIX] Evaluasi status proteksi PIN
+  if (inbox.is_locked) {
+    const isOwner = Boolean(sid && inbox.owner_session_id === sid);
+    const isLinked = sid ? await isInboxInSession(c.env.DB, sid, address) : false;
+    const providedPin = c.req.header('x-inbox-pin') || c.req.query('pin');
+
+    let pinVerified = false;
+    if (providedPin) {
+      pinVerified = await verifyInboxPin(c.env.DB, address, String(providedPin).trim());
+    }
+
+    if (!isOwner && !isLinked && !pinVerified) {
+      return c.json({
+        error: 'INBOX_LOCKED',
+        isLocked: true,
+        requiresPin: true,
+        message: 'Inbox ini dilindungi PIN. Sertakan header x-inbox-pin atau query ?pin= yang valid.'
+      }, 403);
+    }
+  }
 
   const messages = await getMessages(c.env.DB, address);
   return c.json({
@@ -618,21 +651,46 @@ api.get('/messages', async (c) => {
       id: m.id,
       from_address: m.from_address,
       subject: m.subject,
-      snippet: m.body ? m.body.slice(0, 100) : '',
+      snippet: m.body ? m.body.slice(0, 120) : '',
       otp_code: m.otp_code,
       received_at: m.received_at,
     })),
   });
 });
 
-// ---- DELETE & GET /api/inboxes/:address/messages/:id/delete ----
-const deleteMessageHandler = async (c: any) => {
-  const id = c.req.param('id');
-  const success = await deleteMessage(c.env.DB, id);
-  return c.json({ success });
-};
-api.delete('/inboxes/:address/messages/:id', deleteMessageHandler);
-api.get('/inboxes/:address/messages/:id/delete', deleteMessageHandler);
+// ---- DELETE /api/inboxes/:address/messages/:id (Penghapusan Aman dengan Guard & Anti-IDOR) ----
+api.delete('/inboxes/:address/messages/:id', async (c) => {
+  const sid = getSessionId(c);
+  const address = decodeURIComponent(c.req.param('address') || '').trim().toLowerCase();
+  const messageId = c.req.param('id');
+
+  const inbox = await getInbox(c.env.DB, address);
+  if (!inbox) {
+    return c.json({ error: 'Inbox tidak ditemukan' }, 404);
+  }
+
+  // Verifikasi kepemilikan session atau header PIN aktif
+  const isOwner = Boolean(sid && inbox.owner_session_id === sid);
+  const isLinked = sid ? await isInboxInSession(c.env.DB, sid, address) : false;
+  const providedPin = c.req.header('x-inbox-pin') || c.req.query('pin');
+  const pinOk = providedPin ? await verifyInboxPin(c.env.DB, address, String(providedPin).trim()) : false;
+
+  if (!isOwner && !isLinked && !pinOk) {
+    return c.json({
+      error: 'UNAUTHORIZED',
+      message: 'Akses ditolak: Anda bukan pemilik sah dari inbox ini.'
+    }, 403);
+  }
+
+  // Verifikasi bahwa pesan memang berada di dalam inbox tersebut (Mencegah IDOR Cross-Account)
+  const targetMessage = await getMessageById(c.env.DB, address, messageId);
+  if (!targetMessage) {
+    return c.json({ error: 'Pesan tidak ditemukan pada inbox ini' }, 404);
+  }
+
+  const success = await deleteMessage(c.env.DB, messageId);
+  return c.json({ success, deletedId: messageId });
+});
 
 // ---- GET /api/otp/:address (Instant Bot OTP Extractor - Clean & Lightweight) ----
 const getOtpHandler = async (c: any) => {
@@ -694,5 +752,73 @@ const getOtpHandler = async (c: any) => {
 
 api.get('/otp/:address', getOtpHandler);
 api.get('/otp', getOtpHandler);
+
+// ---- POST /inbound (VPS SMTP Mail Receiver Direct Ingestion) ----
+api.post('/inbound', async (c) => {
+  const authHeader = c.req.header('authorization') || c.req.header('x-inbound-secret') || '';
+  const expectedSecret = c.env.ADMIN_SECRET || 'default_jwt_secret_salt_please_change';
+  if (
+    authHeader !== `Bearer ${expectedSecret}` &&
+    authHeader !== expectedSecret &&
+    !authHeader.includes(expectedSecret)
+  ) {
+    return c.json({ error: 'UNAUTHORIZED' }, 401);
+  }
+
+  let body: any = {};
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: 'INVALID_JSON' }, 400);
+  }
+
+  const to = (body.to || '').toLowerCase().trim();
+  const from = (body.from || '').toLowerCase().trim();
+  const subject = body.subject || '(no subject)';
+  const MAX_BODY_CHARS = 250000;
+  const textBody = (body.body || '').slice(0, MAX_BODY_CHARS);
+  const htmlBody = (body.body_html || '').slice(0, MAX_BODY_CHARS);
+  const plainFallback = (textBody || htmlBody.replace(/<[^>]+>/g, ' ').trim() || '').slice(0, MAX_BODY_CHARS);
+  const otpCode = body.otp_code || extractOtpCode(subject, textBody, htmlBody);
+
+  if (!to) {
+    return c.json({ error: 'Missing to address' }, 400);
+  }
+
+  const db = c.env.DB;
+  if (!(await inboxExists(db, to))) {
+    await createInbox(db, to);
+  }
+
+  const msgId = `msg_${Date.now()}_${crypto.randomUUID().slice(0, 8)}`;
+  await insertMessage(db, {
+    id: msgId,
+    inbox_address: to,
+    from_address: from,
+    subject,
+    body: plainFallback,
+    body_html: htmlBody,
+    otp_code: otpCode,
+  });
+
+  // Record traffic log
+  await db
+    .prepare(
+      `INSERT INTO traffic_logs (ip, method, path, status, user_agent, duration_ms)
+       VALUES (?, ?, ?, ?, ?, ?)`
+    )
+    .bind(from.slice(0, 45), 'SMTP-INBOUND', `/inbox/${to}`, 200, 'RZero-VPS-Receiver', 0)
+    .run()
+    .catch(() => {});
+
+  return c.json({
+    success: true,
+    messageId: msgId,
+    to,
+    from,
+    subject,
+    otpCode,
+  });
+});
 
 export default api;

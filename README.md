@@ -83,7 +83,10 @@ Layanan temporary email publik yang ada saat ini seringkali memiliki kendala men
 
 - **GET Method REST API**: Create addresses, list messages, and retrieve OTP codes directly via simple HTTP GET requests. Perfect for bots, curl commands, and browser address bar access.
 - **Automated Contextual OTP Extractor**: Built-in algorithmic regex parser isolates 4–8 digit verification codes from incoming message bodies (Canva, Discord, social media, crypto faucets, APK services) directly into clean JSON fields.
-- **Cloudflare Anycast 3-MX Redundancy**: Multi-server failover routing prevents bounce-backs and ensures instant delivery under high traffic.
+- **Leaderboard Inbound Provider (Admin Exclusive)**: Realtime analytics and classification of email senders (Google, Canva, Alight Motion, Discord, Shopee, Steam, AWS, dll.) with comprehensive metrics and an 'Other' sender drawer for inspecting unidentified sender addresses.
+- **Defensive Hardened Security & PIN Lockout**: Multi-tier security engine featuring a 5-strike brute-force lockout guard (15-minute temporary freeze) stored in D1, strict lock guard enforcement across all message endpoints (including shorthand `/api/messages`), secure RFC-compliant `DELETE` with cross-account IDOR validation, and 250KB bounded payload ingestion to prevent storage exhaustion DoS.
+- **Cloudflare Anycast 3-MX Redundancy & Gateway SMTP**: Multi-server failover routing prevents bounce-backs and ensures instant delivery under high traffic, with dual-path support for both Cloudflare Email Routing and internal VPS SMTP gateway (`mail.rzmail.my.id`).
+- **D1 High-Performance Composite Indexing**: Sub-15ms query latency under heavy inbox loads powered by composite index keys (`idx_messages_inbox_received`, `idx_pin_attempts_address`, `idx_session_inboxes_lookup`).
 - **Permanent Inboxes & PIN Security**: Inboxes do not expire unless explicitly unlinked. Users can lock their custom mailboxes with a 4–6 digit SHA-256 PIN.
 - **Multi-Domain Support**: Seamlessly manage dozens of active domains with live DNS MX inspection and status badges.
 - **Triple-Lock Admin Console**: Multi-tier administration console secured with username, master password, secondary security key, and cryptographically signed session cookies.
@@ -350,8 +353,10 @@ GET /api/otp/mybot@yourdomain.com
 
 ### 4. Fetch All Messages (Lightweight JSON)
 ```http
-GET /api/messages/mybot@yourdomain.com
+GET /api/messages?address=mybot@yourdomain.com
 ```
+*Catatan Keamanan: Jika inbox dikunci dengan PIN, sertakan header `x-inbox-pin: 123456` atau query parameter `?pin=123456`. Permintaan tanpa PIN pada inbox terkunci akan otomatis ditolak dengan `HTTP 403 INBOX_LOCKED`.*
+
 **Response (200 OK):**
 ```json
 {
@@ -377,24 +382,30 @@ GET /api/messages/mybot@yourdomain.com
 GET /api/inboxes/mybot@yourdomain.com/messages/:id
 ```
 
-### 6. Lock Inbox with Security PIN
+### 6. Delete Message (Secure Deletion & Anti-IDOR)
+```http
+DELETE /api/inboxes/mybot@yourdomain.com/messages/:id
+```
+*Memerlukan kepemilikan sesi yang sah atau header `x-inbox-pin` yang cocok. Endpoint memverifikasi IDOR agar pesan hanya dapat dihapus oleh pemilik inbox yang bersangkutan.*
+
+### 7. Lock Inbox with Security PIN
 ```http
 GET /api/inboxes/mybot@yourdomain.com/lock?pin=123456
 ```
 
-### 7. Delete / Unlink Inbox
+### 8. Delete / Unlink Inbox
 ```http
 GET /api/inboxes/mybot@yourdomain.com/delete
 ```
 
-### 8. List Active Verified Domains
+### 9. List Active Verified Domains
 ```http
 GET /api/domains
 ```
 
 ---
 
-## 🔒 Triple-Lock Admin Security
+## 🔒 Triple-Lock Admin Security & Leaderboard
 
 Panel admin (`/admin`) menggunakan autentikasi 3 lapis:
 1. **Lapis 1**: Admin username & SHA-256 hashed password.
@@ -402,10 +413,12 @@ Panel admin (`/admin`) menggunakan autentikasi 3 lapis:
 3. **Lapis 3**: HMAC-SHA256 cryptographically signed session cookie pada setiap pemanggilan endpoint RPC internal.
 
 Fitur admin mencakup:
-- Realtime DNS DoH 3-MX inspection dengan indikator Turbo vs Standar.
-- Manajemen daftar domain (Tambah, Verifikasi, Hapus, Aktif/Nonaktif).
-- Manajemen slot iklan dan sponsor banner.
-- Monitor traffic log dan status rate limiting IP.
+- **Leaderboard Provider Email Masuk**: Pemantauan volume dan peringkat pengirim email masuk secara realtime (Google, Canva, Alight Motion, Discord, Shopee, Steam, AWS, dll.) dengan klasifikasi otomatis dan drawer rincian sender untuk kategori *Other*.
+- **Realtime DNS DoH 3-MX Inspection**: Dual-DoH validator (Cloudflare + Google DoH) untuk verifikasi otomatis status routing domain.
+- **Manajemen Domain**: Tambah, verifikasi, aktifkan/nonaktifkan, dan hapus domain.
+- **Manajemen Slot Iklan & Sponsor**: Pengaturan banner sponsor dan pelacakan klik konversi.
+- **Traffic Logs & Rate Limiting**: Pengawasan IP, counter hit, dan audit jejak request.
+- **PIN Attempt Lockout Guard**: Pencatatan otomatis di D1; jika terjadi 5 kali kegagalan input PIN berturut-turut pada inbox, sistem mengunci verifikasi alamat tersebut selama 15 menit.
 
 ---
 

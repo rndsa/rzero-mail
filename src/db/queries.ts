@@ -112,17 +112,65 @@ export async function unlockInbox(
   return (res.meta.changes || 0) > 0;
 }
 
+export async function verifyInboxPinWithLockout(
+  db: D1Database,
+  address: string,
+  candidatePin: string
+): Promise<{ success: boolean; locked: boolean; remainingMinutes?: number }> {
+  // 1. Cek apakah alamat sedang dalam masa hukuman lockout
+  const attemptRow = await db
+    .prepare('SELECT failed_count, locked_until FROM pin_attempts WHERE address = ?')
+    .bind(address)
+    .first<{ failed_count: number; locked_until: string | null }>()
+    .catch(() => null);
+
+  if (attemptRow && attemptRow.locked_until) {
+    const lockExpiry = new Date(attemptRow.locked_until).getTime();
+    const now = Date.now();
+    if (now < lockExpiry) {
+      const remainingMinutes = Math.ceil((lockExpiry - now) / 60000);
+      return { success: false, locked: true, remainingMinutes };
+    }
+  }
+
+  // 2. Evaluasi kecocokan PIN
+  const pinHash = await hashPin(candidatePin);
+  const inbox = await db
+    .prepare('SELECT 1 FROM inboxes WHERE address = ? AND lock_pin_hash = ?')
+    .bind(address, pinHash)
+    .first();
+
+  if (inbox) {
+    // Sukses: Reset riwayat percobaan
+    await db.prepare('DELETE FROM pin_attempts WHERE address = ?').bind(address).run().catch(() => {});
+    return { success: true, locked: false };
+  } else {
+    // Gagal: Tingkatkan counter dan tentukan lockout jika >= 5 percobaan
+    const currentFailed = (attemptRow?.failed_count || 0) + 1;
+    const isLockout = currentFailed >= 5;
+    await db
+      .prepare(`
+        INSERT INTO pin_attempts (address, failed_count, locked_until)
+        VALUES (?, 1, NULL)
+        ON CONFLICT(address) DO UPDATE SET
+          failed_count = failed_count + 1,
+          locked_until = CASE WHEN pin_attempts.failed_count + 1 >= 5 THEN datetime('now', '+15 minutes') ELSE NULL END
+      `)
+      .bind(address)
+      .run()
+      .catch(() => {});
+
+    return { success: false, locked: isLockout, remainingMinutes: isLockout ? 15 : undefined };
+  }
+}
+
 export async function verifyInboxPin(
   db: D1Database,
   address: string,
   pin: string
 ): Promise<boolean> {
-  const pinHash = await hashPin(pin);
-  const row = await db
-    .prepare('SELECT 1 FROM inboxes WHERE address = ? AND lock_pin_hash = ?')
-    .bind(address, pinHash)
-    .first();
-  return !!row;
+  const result = await verifyInboxPinWithLockout(db, address, pin);
+  return result.success;
 }
 
 export async function inboxExists(db: D1Database, address: string): Promise<boolean> {
@@ -351,6 +399,28 @@ export async function getTrafficStats(db: D1Database): Promise<TrafficStats> {
   };
 }
 
+export interface SenderStatItem {
+  from_address: string;
+  count: number;
+}
+
+export async function getSenderStats(db: D1Database): Promise<SenderStatItem[]> {
+  try {
+    const res = await db
+      .prepare(
+        `SELECT from_address, COUNT(*) as count
+         FROM messages
+         WHERE from_address IS NOT NULL AND from_address != ''
+         GROUP BY from_address
+         ORDER BY count DESC`
+      )
+      .all<SenderStatItem>();
+    return res.results || [];
+  } catch {
+    return [];
+  }
+}
+
 // ==========================================
 // 6. ADS & SPONSORSHIP (MONETIZATION)
 // ==========================================
@@ -527,6 +597,15 @@ export async function ensureDatabaseSchema(db: D1Database): Promise<void> {
         clicks INTEGER NOT NULL DEFAULT 0,
         updated_at TEXT NOT NULL DEFAULT (datetime('now'))
       )`),
+      db.prepare(`CREATE TABLE IF NOT EXISTS pin_attempts (
+        address TEXT PRIMARY KEY,
+        failed_count INTEGER NOT NULL DEFAULT 0,
+        locked_until TEXT DEFAULT NULL
+      )`),
+      db.prepare(`CREATE INDEX IF NOT EXISTS idx_messages_inbox_received ON messages (inbox_address, received_at DESC)`),
+      db.prepare(`CREATE INDEX IF NOT EXISTS idx_inboxes_owner ON inboxes (owner_session_id)`),
+      db.prepare(`CREATE INDEX IF NOT EXISTS idx_session_inboxes_lookup ON session_inboxes (session_id, inbox_address)`),
+      db.prepare(`CREATE INDEX IF NOT EXISTS idx_pin_attempts_address ON pin_attempts (address)`),
       db.prepare(`INSERT OR IGNORE INTO ads (slot_name, is_active, ad_type, title, description, banner_url, target_url, cta_text)
         VALUES ('slot_main', 1, 'manual', 'Sewa Slot Iklan Ini (Open Sponsor)', 'Pasang banner produk, bot, atau jasa kamu di sini.', '', 'https://instagram.com/rskl411_', 'Pasang Iklan')`)
     ]);

@@ -161,11 +161,31 @@ RZero Mail, RZero, RZeroMail, rzmail.my.id, temp mail, disposable email, email s
       });
     }
 
-    // 4. API Documentation (/docs, /docs/, /api/docs)
-    if (url.pathname === '/docs' || url.pathname === '/docs/') {
+    // 3. Homepage (/)
+    if (url.pathname === '/') {
+      if (env.ASSETS) {
+        const homeReq = new Request(new URL('/index.html', request.url), request);
+        const homeRes = await env.ASSETS.fetch(homeReq);
+        const headers = new Headers(homeRes.headers);
+        headers.set('Content-Type', 'text/html; charset=UTF-8');
+        return new Response(homeRes.body, {
+          status: 200,
+          headers,
+        });
+      }
+    }
+
+    // 4. API Documentation (/docs, /docs/, /api/docs, /docs.html)
+    if (url.pathname === '/docs' || url.pathname === '/docs/' || url.pathname === '/docs.html') {
       if (env.ASSETS) {
         const docsReq = new Request(new URL('/docs.html', request.url), request);
-        return env.ASSETS.fetch(docsReq);
+        const docsRes = await env.ASSETS.fetch(docsReq);
+        const headers = new Headers(docsRes.headers);
+        headers.set('Content-Type', 'text/html; charset=UTF-8');
+        return new Response(docsRes.body, {
+          status: 200,
+          headers,
+        });
       }
       return Response.redirect(new URL('/docs.html', request.url).toString(), 302);
     }
@@ -173,10 +193,24 @@ RZero Mail, RZero, RZeroMail, rzmail.my.id, temp mail, disposable email, email s
       return Response.redirect(new URL('/docs', request.url).toString(), 302);
     }
 
-    // 5. Admin Web Dashboard Shortcut
-    if (url.pathname === '/admin' || url.pathname === '/admin/') {
-      const adminUrl = new URL('/admin.html', request.url);
-      return Response.redirect(adminUrl.toString(), 302);
+    // 5. Admin Web Dashboard (Strict No-Cache, zero-redirect direct serve)
+    if (url.pathname === '/admin' || url.pathname === '/admin/' || url.pathname === '/admin.html') {
+      if (env.ASSETS) {
+        const adminReq = new Request(new URL('/admin.html', request.url), request);
+        const assetRes = await env.ASSETS.fetch(adminReq);
+        const headers = new Headers(assetRes.headers);
+        headers.set('Content-Type', 'text/html; charset=UTF-8');
+        headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
+        headers.set('Pragma', 'no-cache');
+        headers.set('Expires', '0');
+        headers.set('CDN-Cache-Control', 'no-store');
+        headers.set('Cloudflare-CDN-Cache-Control', 'no-store');
+        return new Response(assetRes.body, {
+          status: 200,
+          headers,
+        });
+      }
+      return Response.redirect(new URL('/admin.html', request.url).toString(), 302);
     }
 
     // 6. Public User REST API (/api/*)

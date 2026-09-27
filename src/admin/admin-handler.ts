@@ -8,6 +8,7 @@ import {
   getTrafficStats,
   getAllAds,
   saveAd,
+  getSenderStats,
 } from '../db/queries';
 import {
   parseCookies,
@@ -24,6 +25,283 @@ export interface AdminEnv {
 }
 
 const COOKIE_NAME = 'rzero_admin_session';
+
+interface ProviderRule {
+  name: string;
+  category: string;
+  patterns: (string | RegExp)[];
+}
+
+const KNOWN_PROVIDERS: ProviderRule[] = [
+  {
+    name: 'Alight Motion',
+    category: 'Creative / Video',
+    patterns: [/alight/i, /alight-creative/i, /alightcreative/i, /alightmotion/i],
+  },
+  {
+    name: 'Canva',
+    category: 'Design & Media',
+    patterns: [/canva\.com/i],
+  },
+  {
+    name: 'Discord',
+    category: 'Community & Gaming',
+    patterns: [/discord/i],
+  },
+  {
+    name: 'Google / Gmail',
+    category: 'Tech & OAuth',
+    patterns: [/google\.com/i, /gmail\.com/i],
+  },
+  {
+    name: 'Shopee',
+    category: 'E-Commerce',
+    patterns: [/shopee/i],
+  },
+  {
+    name: 'TikTok',
+    category: 'Social Media',
+    patterns: [/tiktok/i, /bytedance/i],
+  },
+  {
+    name: 'Telegram',
+    category: 'Messaging',
+    patterns: [/telegram/i],
+  },
+  {
+    name: 'Instagram / Meta',
+    category: 'Social Media',
+    patterns: [/instagram\.com/i, /facebookmail\.com/i, /meta\.com/i, /facebook\.com/i],
+  },
+  {
+    name: 'X / Twitter',
+    category: 'Social Media',
+    patterns: [/twitter\.com/i, /x\.com/i],
+  },
+  {
+    name: 'Steam / Valve',
+    category: 'Gaming',
+    patterns: [/steampowered\.com/i, /valvesoftware\.com/i],
+  },
+  {
+    name: 'Netflix',
+    category: 'Streaming',
+    patterns: [/netflix\.com/i],
+  },
+  {
+    name: 'Spotify',
+    category: 'Music',
+    patterns: [/spotify\.com/i],
+  },
+  {
+    name: 'GitHub',
+    category: 'Developer Platform',
+    patterns: [/github\.com/i],
+  },
+  {
+    name: 'Microsoft / Outlook',
+    category: 'Office & Email',
+    patterns: [/microsoft\.com/i, /outlook\.com/i, /live\.com/i, /hotmail\.com/i],
+  },
+  {
+    name: 'Amazon / AWS',
+    category: 'Cloud & Commerce',
+    patterns: [/amazon\.com/i, /amazonses\.com/i],
+  },
+  {
+    name: 'OpenAI / ChatGPT',
+    category: 'Artificial Intelligence',
+    patterns: [/openai\.com/i, /chatgpt\.com/i],
+  },
+  {
+    name: 'Apple / iCloud',
+    category: 'Tech & ID',
+    patterns: [/apple\.com/i, /icloud\.com/i],
+  },
+  {
+    name: 'Roblox',
+    category: 'Gaming',
+    patterns: [/roblox\.com/i],
+  },
+  {
+    name: 'Moonton / MLBB',
+    category: 'Gaming',
+    patterns: [/moonton\.com/i, /mobilelegends\.com/i],
+  },
+  {
+    name: 'Tokopedia',
+    category: 'E-Commerce',
+    patterns: [/tokopedia\.com/i],
+  },
+  {
+    name: 'Gojek / GoTo',
+    category: 'Fintech & Ride',
+    patterns: [/gojek\.com/i, /goto\.com/i],
+  },
+  {
+    name: 'DANA',
+    category: 'Fintech & Wallet',
+    patterns: [/dana\.id/i],
+  },
+  {
+    name: 'Grab',
+    category: 'Superapp',
+    patterns: [/grab\.com/i],
+  },
+  {
+    name: 'PayPal',
+    category: 'Fintech / Payment',
+    patterns: [/paypal\.com/i],
+  },
+  {
+    name: 'deSEC DNS',
+    category: 'DNS / Infra',
+    patterns: [/desec\.io/i],
+  },
+  {
+    name: 'ClouDNS',
+    category: 'DNS / Infra',
+    patterns: [/cloudns\.net/i],
+  },
+  {
+    name: 'YDNS',
+    category: 'DNS / Infra',
+    patterns: [/ydns\.io/i],
+  },
+  {
+    name: 'FreeDNS / Afraid',
+    category: 'DNS / Infra',
+    patterns: [/afraid\.org/i],
+  },
+  {
+    name: 'Cloudflare',
+    category: 'Cloud / Edge',
+    patterns: [/cloudflare\.com/i],
+  },
+  {
+    name: 'Pinterest',
+    category: 'Social Media',
+    patterns: [/pinterest\.com/i],
+  },
+  {
+    name: 'Reddit',
+    category: 'Social Community',
+    patterns: [/reddit\.com/i],
+  },
+  {
+    name: 'Twitch',
+    category: 'Livestreaming',
+    patterns: [/twitch\.tv/i],
+  },
+  {
+    name: 'Epic Games',
+    category: 'Gaming',
+    patterns: [/epicgames\.com/i],
+  },
+  {
+    name: 'Riot Games',
+    category: 'Gaming',
+    patterns: [/riotgames\.com/i],
+  },
+  {
+    name: 'Yahoo',
+    category: 'Email & Portal',
+    patterns: [/yahoo\.com/i],
+  },
+];
+
+export function buildProviderLeaderboard(rawSenders: { from_address: string; count: number }[]) {
+  let totalEmails = 0;
+  const providerMap = new Map<string, {
+    name: string;
+    category: string;
+    count: number;
+    senders: { address: string; count: number }[];
+  }>();
+
+  const otherSendersMap = new Map<string, { address: string; domain: string; count: number }>();
+  let otherCount = 0;
+
+  for (const item of rawSenders) {
+    const rawAddr = (item.from_address || '').trim();
+    if (!rawAddr) continue;
+    const count = Number(item.count) || 0;
+    totalEmails += count;
+
+    // Clean address (remove display name <email@domain.com>)
+    const match = rawAddr.match(/<([^>]+)>/);
+    const cleanAddr = (match ? match[1] : rawAddr).trim().toLowerCase();
+    const parts = cleanAddr.split('@');
+    const domain = parts.length > 1 ? parts[parts.length - 1] : cleanAddr;
+
+    let matched = false;
+    for (const prov of KNOWN_PROVIDERS) {
+      const isMatch = prov.patterns.some((pat) =>
+        typeof pat === 'string' ? cleanAddr.includes(pat) : pat.test(cleanAddr)
+      );
+      if (isMatch) {
+        if (!providerMap.has(prov.name)) {
+          providerMap.set(prov.name, {
+            name: prov.name,
+            category: prov.category,
+            count: 0,
+            senders: [],
+          });
+        }
+        const p = providerMap.get(prov.name)!;
+        p.count += count;
+        p.senders.push({ address: cleanAddr, count });
+        matched = true;
+        break;
+      }
+    }
+
+    if (!matched) {
+      otherCount += count;
+      if (otherSendersMap.has(cleanAddr)) {
+        otherSendersMap.get(cleanAddr)!.count += count;
+      } else {
+        otherSendersMap.set(cleanAddr, { address: cleanAddr, domain, count });
+      }
+    }
+  }
+
+  // Format providers sorted descending by count
+  const providers = Array.from(providerMap.values())
+    .map((p) => ({
+      name: p.name,
+      category: p.category,
+      count: p.count,
+      percentage: totalEmails > 0 ? Number(((p.count / totalEmails) * 100).toFixed(1)) : 0,
+      senders: p.senders.sort((a, b) => b.count - a.count),
+    }))
+    .sort((a, b) => b.count - a.count);
+
+  // Format other senders sorted descending by count
+  const otherSenders = Array.from(otherSendersMap.values())
+    .map((s) => ({
+      address: s.address,
+      domain: s.domain,
+      count: s.count,
+      percentage: totalEmails > 0 ? Number(((s.count / totalEmails) * 100).toFixed(1)) : 0,
+    }))
+    .sort((a, b) => b.count - a.count);
+
+  const totalKnown = totalEmails - otherCount;
+
+  return {
+    total_emails: totalEmails,
+    total_known: totalKnown,
+    total_other: otherCount,
+    providers,
+    other: {
+      name: 'Other',
+      count: otherCount,
+      percentage: totalEmails > 0 ? Number(((otherCount / totalEmails) * 100).toFixed(1)) : 0,
+      senders: otherSenders,
+    },
+  };
+}
 
 export async function handleAdminAction(request: Request, env: AdminEnv): Promise<Response> {
   if (request.method !== 'POST') {
@@ -45,7 +323,7 @@ export async function handleAdminAction(request: Request, env: AdminEnv): Promis
 
   const action = body.action;
   const adminSecret = env.ADMIN_SECRET || 'default_jwt_secret_salt_please_change';
-  const expectedUser = env.ADMIN_USERNAME || 'admin';
+  const expectedUser = env.ADMIN_USERNAME || 'ren';
   const expectedPass = env.ADMIN_PASSWORD || 'change_this_admin_password';
   const expectedV2l = env.ADMIN_V2L_KEY || 'change_this_secondary_key';
 
@@ -181,11 +459,14 @@ export async function handleAdminAction(request: Request, env: AdminEnv): Promis
 
   // GET DASHBOARD (ALL-IN-ONE FOR ADMIN CONSOLE)
   if (action === 'get_dashboard') {
-    const [stats, domains, logs] = await Promise.all([
+    const [stats, domains, logs, rawSenders] = await Promise.all([
       getTrafficStats(env.DB),
       getAllDomains(env.DB),
       getTrafficLogs(env.DB, 50),
+      getSenderStats(env.DB),
     ]);
+
+    const leaderboard = buildProviderLeaderboard(rawSenders);
 
     return new Response(
       JSON.stringify({
@@ -199,12 +480,23 @@ export async function handleAdminAction(request: Request, env: AdminEnv): Promis
         stats,
         domains,
         logs,
+        leaderboard,
       }),
       {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
       }
     );
+  }
+
+  // GET LEADERBOARD (PROVIDER RANKINGS)
+  if (action === 'get_leaderboard') {
+    const rawSenders = await getSenderStats(env.DB);
+    const leaderboard = buildProviderLeaderboard(rawSenders);
+    return new Response(JSON.stringify({ success: true, leaderboard }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 
   // GET STATS

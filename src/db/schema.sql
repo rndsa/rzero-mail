@@ -66,6 +66,15 @@ CREATE TABLE IF NOT EXISTS traffic_logs (
 CREATE INDEX IF NOT EXISTS idx_traffic_timestamp ON traffic_logs(timestamp DESC);
 CREATE INDEX IF NOT EXISTS idx_traffic_ip ON traffic_logs(ip);
 
+-- PIN Attempt Rate Limiting & Lockout Protection
+CREATE TABLE IF NOT EXISTS pin_attempts (
+  address TEXT PRIMARY KEY,
+  failed_count INTEGER NOT NULL DEFAULT 0,
+  locked_until TEXT DEFAULT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_pin_attempts_address ON pin_attempts(address);
+
 -- Ads & Sponsorship Slots (Manual or Adsterra/Script)
 CREATE TABLE IF NOT EXISTS ads (
   slot_name TEXT PRIMARY KEY,

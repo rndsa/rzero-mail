@@ -36,6 +36,9 @@ ADMIN_SECRET = "change_this_jwt_hmac_secret_salt"
 # ---- Static Assets (Neo-Brutalism Web Frontend) ----
 [assets]
 directory = "./src/web"
+binding = "ASSETS"
+run_worker_first = true
+html_handling = "none"
 
 # ---- Observability ----
 [observability]

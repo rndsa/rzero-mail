@@ -27,9 +27,11 @@ export async function handleEmail(
     const parsed = await parser.parse(rawStream);
 
     const subject = parsed.subject || '(no subject)';
-    const textBody = parsed.text?.trim() || '';
-    const htmlBody = parsed.html?.trim() || '';
-    const plainFallback = textBody || htmlBody.replace(/<[^>]+>/g, ' ').trim() || '';
+    // Defense against unbounded email body ingestion (DoS / storage exhaustion)
+    const MAX_BODY_CHARS = 250000;
+    const textBody = (parsed.text?.trim() || '').slice(0, MAX_BODY_CHARS);
+    const htmlBody = (parsed.html?.trim() || '').slice(0, MAX_BODY_CHARS);
+    const plainFallback = (textBody || htmlBody.replace(/<[^>]+>/g, ' ').trim() || '').slice(0, MAX_BODY_CHARS);
 
     // Automatically detect and extract 4-8 digit OTP code
     const otpCode = extractOtpCode(subject, textBody, htmlBody);
