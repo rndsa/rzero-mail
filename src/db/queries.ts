@@ -110,7 +110,11 @@ export async function unlockInbox(
     .first<{ is_locked: number; lock_pin_hash: string | null }>();
 
   if (!inbox || !inbox.is_locked || !inbox.lock_pin_hash) return false;
-  if (!(await verifyPinHash(pin, inbox.lock_pin_hash))) return false;
+
+  // Same lockout every other PIN check goes through. This used to compare the
+  // hash directly, so `/unlock` was a lockout-free oracle: an attacker could
+  // brute-force a 4-digit PIN there and never trip the 5-attempt guard.
+  if (!(await verifyInboxPin(db, address, pin))) return false;
 
   // Re-bind the exact hash we verified so a concurrent re-lock cannot be
   // clobbered by a stale verification.
@@ -125,72 +129,106 @@ export async function unlockInbox(
   return (res.meta.changes || 0) > 0;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// PIN lockout helpers
+//
+// Extracted so EVERY PIN-checking path shares one implementation. `/unlock`
+// used to compare the hash on its own, which made it a lockout-free oracle:
+// the 5-attempts/15-minute rule did not apply there at all, so a 4-digit PIN
+// could be brute-forced through that endpoint without ever tripping the guard.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const PIN_MAX_ATTEMPTS = 5;
+const PIN_LOCKOUT_MINUTES = 15;
+
+/** Minutes left on this address's lockout, or 0 when it is not locked out. */
+async function pinLockoutRemainingMinutes(db: D1Database, address: string): Promise<number> {
+  const row = await db
+    .prepare('SELECT locked_until FROM pin_attempts WHERE address = ?')
+    .bind(address)
+    .first<{ locked_until: string | null }>()
+    .catch(() => null);
+  if (!row?.locked_until) return 0;
+  const expiry = new Date(row.locked_until).getTime();
+  if (!Number.isFinite(expiry)) return 0;
+  const remaining = expiry - Date.now();
+  return remaining > 0 ? Math.ceil(remaining / 60000) : 0;
+}
+
+async function clearPinAttempts(db: D1Database, address: string): Promise<void> {
+  await db.prepare('DELETE FROM pin_attempts WHERE address = ?').bind(address).run().catch(() => {});
+}
+
+/** Record a failed attempt; true when this attempt is the one that trips the lockout. */
+async function recordPinFailure(db: D1Database, address: string): Promise<boolean> {
+  const row = await db
+    .prepare('SELECT failed_count FROM pin_attempts WHERE address = ?')
+    .bind(address)
+    .first<{ failed_count: number }>()
+    .catch(() => null);
+  const willLock = (row?.failed_count || 0) + 1 >= PIN_MAX_ATTEMPTS;
+  await db
+    .prepare(`
+      INSERT INTO pin_attempts (address, failed_count, locked_until)
+      VALUES (?, 1, NULL)
+      ON CONFLICT(address) DO UPDATE SET
+        failed_count = failed_count + 1,
+        locked_until = CASE WHEN pin_attempts.failed_count + 1 >= ${PIN_MAX_ATTEMPTS}
+                            THEN datetime('now', '+${PIN_LOCKOUT_MINUTES} minutes')
+                            ELSE NULL END
+    `)
+    .bind(address)
+    .run()
+    .catch(() => {});
+  return willLock;
+}
+
+/** Hash comparison plus legacy upgrade. Deliberately does NOT touch the lockout table. */
+async function pinMatches(db: D1Database, address: string, candidatePin: string): Promise<boolean> {
+  const inbox = await db
+    .prepare('SELECT lock_pin_hash FROM inboxes WHERE address = ?')
+    .bind(address)
+    .first<{ lock_pin_hash: string | null }>();
+  const stored = inbox?.lock_pin_hash ?? null;
+
+  if (!(await verifyPinHash(candidatePin, stored))) return false;
+
+  // Transparently upgrade hashes written by the legacy SHA-256 scheme.
+  if (isLegacyPinHash(stored)) {
+    try {
+      const upgraded = await hashPin(candidatePin);
+      await db
+        .prepare('UPDATE inboxes SET lock_pin_hash = ? WHERE address = ? AND lock_pin_hash = ?')
+        .bind(upgraded, address, stored)
+        .run();
+    } catch {
+      // Best-effort: the legacy hash stays valid if the upgrade fails.
+    }
+  }
+  return true;
+}
+
 export async function verifyInboxPinWithLockout(
   db: D1Database,
   address: string,
   candidatePin: string
 ): Promise<{ success: boolean; locked: boolean; remainingMinutes?: number }> {
-  // 1. Cek apakah alamat sedang dalam masa hukuman lockout
-  const attemptRow = await db
-    .prepare('SELECT failed_count, locked_until FROM pin_attempts WHERE address = ?')
-    .bind(address)
-    .first<{ failed_count: number; locked_until: string | null }>()
-    .catch(() => null);
-
-  if (attemptRow && attemptRow.locked_until) {
-    const lockExpiry = new Date(attemptRow.locked_until).getTime();
-    const now = Date.now();
-    if (now < lockExpiry) {
-      const remainingMinutes = Math.ceil((lockExpiry - now) / 60000);
-      return { success: false, locked: true, remainingMinutes };
-    }
+  const remaining = await pinLockoutRemainingMinutes(db, address);
+  if (remaining > 0) {
+    return { success: false, locked: true, remainingMinutes: remaining };
   }
 
-  // 2. Evaluasi kecocokan PIN
-  const inbox = await db
-    .prepare('SELECT lock_pin_hash FROM inboxes WHERE address = ?')
-    .bind(address)
-    .first<{ lock_pin_hash: string | null }>();
-
-  const matches = await verifyPinHash(candidatePin, inbox?.lock_pin_hash ?? null);
-
-  if (matches) {
-    // Sukses: Reset riwayat percobaan
-    await db.prepare('DELETE FROM pin_attempts WHERE address = ?').bind(address).run().catch(() => {});
-
-    // Transparently upgrade hashes written by the legacy SHA-256 scheme.
-    const storedHash = inbox?.lock_pin_hash ?? null;
-    if (isLegacyPinHash(storedHash)) {
-      try {
-        const upgraded = await hashPin(candidatePin);
-        await db
-          .prepare('UPDATE inboxes SET lock_pin_hash = ? WHERE address = ? AND lock_pin_hash = ?')
-          .bind(upgraded, address, storedHash)
-          .run();
-      } catch {
-        // Best-effort: the legacy hash stays valid if the upgrade fails.
-      }
-    }
-
+  if (await pinMatches(db, address, candidatePin)) {
+    await clearPinAttempts(db, address);
     return { success: true, locked: false };
-  } else {
-    // Gagal: Tingkatkan counter dan tentukan lockout jika >= 5 percobaan
-    const currentFailed = (attemptRow?.failed_count || 0) + 1;
-    const isLockout = currentFailed >= 5;
-    await db
-      .prepare(`
-        INSERT INTO pin_attempts (address, failed_count, locked_until)
-        VALUES (?, 1, NULL)
-        ON CONFLICT(address) DO UPDATE SET
-          failed_count = failed_count + 1,
-          locked_until = CASE WHEN pin_attempts.failed_count + 1 >= 5 THEN datetime('now', '+15 minutes') ELSE NULL END
-      `)
-      .bind(address)
-      .run()
-      .catch(() => {});
-
-    return { success: false, locked: isLockout, remainingMinutes: isLockout ? 15 : undefined };
   }
+
+  const locked = await recordPinFailure(db, address);
+  return {
+    success: false,
+    locked,
+    remainingMinutes: locked ? PIN_LOCKOUT_MINUTES : undefined,
+  };
 }
 
 export async function verifyInboxPin(
@@ -527,17 +565,33 @@ export async function saveAd(db: D1Database, ad: Partial<AdItem> & { slot_name: 
          updated_at = datetime('now')`
     )
     .bind(
-      ad.slot_name,
+      (ad.slot_name || '').slice(0, 64),
       ad.is_active !== undefined ? (ad.is_active ? 1 : 0) : 1,
-      ad.ad_type || 'manual',
-      ad.title || '',
-      ad.description || '',
-      ad.banner_url || '',
-      ad.target_url || '',
-      ad.script_code || '',
-      ad.cta_text || 'Lihat Promo'
+      ad.ad_type === 'script' ? 'script' : 'manual',
+      (ad.title || '').slice(0, 200),
+      (ad.description || '').slice(0, 500),
+      safeHttpUrl(ad.banner_url, 2048),
+      safeHttpUrl(ad.target_url, 2048),
+      // Script slots are rendered and executed by the web client, so this value
+      // is code, not data — cap it so one slot cannot bloat every /api/ads
+      // response delivered to every visitor.
+      (ad.script_code || '').slice(0, 20000),
+      (ad.cta_text || 'Lihat Promo').slice(0, 60)
     )
     .run();
+}
+
+/**
+ * Only http(s) URLs are stored for ad links. The click handler already refuses
+ * to redirect anything else, so this keeps the stored row honest rather than
+ * leaving a `javascript:` value sitting in the database waiting for a future
+ * caller to trust it.
+ */
+function safeHttpUrl(value: unknown, maxLength: number): string {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  if (!/^https?:\/\//i.test(raw)) return '';
+  return raw.slice(0, maxLength);
 }
 
 export async function recordAdClick(db: D1Database, slotName: string): Promise<string | null> {

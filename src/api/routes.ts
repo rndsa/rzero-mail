@@ -65,13 +65,28 @@ function clampBody(value: string | null | undefined): string {
   return v.length > LIST_BODY_MAX_CHARS ? v.slice(0, LIST_BODY_MAX_CHARS) : v;
 }
 
+/**
+ * decodeURIComponent throws on malformed percent-encoding (a bare `%`, `%zz`),
+ * which turns a junk URL into an unhandled 500 instead of a clean 404/400.
+ * Every caller here only wants a best-effort address, so fall back to the raw
+ * value rather than exploding.
+ */
+function safeDecode(value: string | null | undefined): string {
+  const raw = value || '';
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return raw;
+  }
+}
+
 function getSessionId(c: any): string | null {
   const headerSid = (c.req.header('x-session-id') || c.req.query('session_id') || '').trim();
   if (headerSid) return headerSid;
   const cookieHeader = c.req.header('cookie') || '';
   const match = cookieHeader.match(/rzero_user_session=([^;]+)/);
   if (match && match[1]) {
-    return decodeURIComponent(match[1]).trim();
+    return safeDecode(match[1]).trim();
   }
   return null;
 }
@@ -207,7 +222,7 @@ const createInboxHandler = async (c: any) => {
       } catch {}
     }
 
-    const pathAddress = c.req.param('address') ? decodeURIComponent(c.req.param('address')).trim().toLowerCase() : '';
+    const pathAddress = c.req.param('address') ? safeDecode(c.req.param('address')).trim().toLowerCase() : '';
     const queryDomain = c.req.query('domain');
     const queryName = c.req.query('name') || c.req.query('user');
     const queryAddress = c.req.query('address') || c.req.query('email');
@@ -388,7 +403,7 @@ const deleteInboxHandler = async (c: any) => {
   const sid = requireSession(c);
   if (!sid) return c.json({ error: 'Missing x-session-id header' }, 400);
 
-  const address = decodeURIComponent(c.req.param('address') || c.req.query('address') || '').toLowerCase();
+  const address = safeDecode(c.req.param('address') || c.req.query('address') || '').toLowerCase();
   if (!address) return c.json({ error: 'Address is required' }, 400);
 
   await unlinkInboxFromSession(c.env.DB, sid, address);
@@ -401,7 +416,7 @@ const lockInboxHandler = async (c: any) => {
   const sid = requireSession(c);
   if (!sid) return c.json({ error: 'Missing x-session-id header' }, 400);
 
-  const address = decodeURIComponent(c.req.param('address') || c.req.query('address') || '').toLowerCase();
+  const address = safeDecode(c.req.param('address') || c.req.query('address') || '').toLowerCase();
   let body: any = {};
   if (c.req.method === 'POST') {
     try { body = await c.req.json(); } catch {}
@@ -432,7 +447,7 @@ api.post('/inboxes/:address/lock', lockInboxHandler);
 
 // ---- POST /api/inboxes/:address/unlock (Unlock email with PIN) ----
 const unlockInboxHandler = async (c: any) => {
-  const address = decodeURIComponent(c.req.param('address') || c.req.query('address') || '').toLowerCase();
+  const address = safeDecode(c.req.param('address') || c.req.query('address') || '').toLowerCase();
   let body: any = {};
   if (c.req.method === 'POST') {
     try { body = await c.req.json(); } catch {}
@@ -455,7 +470,7 @@ api.post('/inboxes/:address/unlock', unlockInboxHandler);
 // ---- POST /api/inboxes/:address/verify-pin (Verify PIN & link session) ----
 const verifyPinHandler = async (c: any) => {
   const sid = requireSession(c);
-  const address = decodeURIComponent(c.req.param('address') || c.req.query('address') || '').toLowerCase();
+  const address = safeDecode(c.req.param('address') || c.req.query('address') || '').toLowerCase();
   let body: any = {};
   if (c.req.method === 'POST') {
     try { body = await c.req.json(); } catch {}
@@ -478,7 +493,7 @@ api.post('/inboxes/:address/verify-pin', verifyPinHandler);
 // ---- GET /api/inboxes/:address/messages (Read Messages + Lock Guard) ----
 api.get('/inboxes/:address/messages', async (c) => {
   const sid = getSessionId(c);
-  const address = decodeURIComponent(c.req.param('address')).toLowerCase();
+  const address = safeDecode(c.req.param('address')).toLowerCase();
   const inbox = await getInbox(c.env.DB, address);
 
   if (!inbox) {
@@ -533,7 +548,7 @@ api.get('/inboxes/:address/messages', async (c) => {
 // ---- GET /api/inboxes/:address/messages/:id (Single Message Detail) ----
 api.get('/inboxes/:address/messages/:id', async (c) => {
   const sid = getSessionId(c);
-  const address = decodeURIComponent(c.req.param('address')).toLowerCase();
+  const address = safeDecode(c.req.param('address')).toLowerCase();
   const id = c.req.param('id');
   const inbox = await getInbox(c.env.DB, address);
 
@@ -585,7 +600,7 @@ api.get('/inboxes/:address/messages/:id', async (c) => {
 
 // ---- GET /api/messages (Shorthand GET for retrieving messages) ----
 api.get('/messages/:address', async (c) => {
-  const address = decodeURIComponent(c.req.param('address')).toLowerCase();
+  const address = safeDecode(c.req.param('address')).toLowerCase();
   const sid = getSessionId(c);
   const inbox = await getInbox(c.env.DB, address);
   if (!inbox) return c.json({ address, messages: [] });
@@ -678,7 +693,7 @@ api.get('/messages', async (c) => {
 // ---- DELETE /api/inboxes/:address/messages/:id (Penghapusan Aman dengan Guard & Anti-IDOR) ----
 api.delete('/inboxes/:address/messages/:id', async (c) => {
   const sid = getSessionId(c);
-  const address = decodeURIComponent(c.req.param('address') || '').trim().toLowerCase();
+  const address = safeDecode(c.req.param('address') || '').trim().toLowerCase();
   const messageId = c.req.param('id');
 
   const inbox = await getInbox(c.env.DB, address);
@@ -711,7 +726,7 @@ api.delete('/inboxes/:address/messages/:id', async (c) => {
 
 // ---- GET /api/otp/:address (Instant Bot OTP Extractor - Clean & Lightweight) ----
 const getOtpHandler = async (c: any) => {
-  const address = decodeURIComponent(c.req.param('address') || c.req.query('address') || c.req.query('email') || '').toLowerCase().trim();
+  const address = safeDecode(c.req.param('address') || c.req.query('address') || c.req.query('email') || '').toLowerCase().trim();
   if (!address) {
     return c.json({ success: false, error: 'Address is required (?address=user@zallpyx.xyz)' }, 400);
   }

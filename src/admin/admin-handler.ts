@@ -89,6 +89,29 @@ function sanitizeSenderAddress(raw: string): string {
   return raw.replace(/[^a-z0-9._%+@:-]/gi, '').slice(0, 320);
 }
 
+/**
+ * Hostname shape only.
+ *
+ * `add_domain` previously only checked "contains a dot and is at least 3 chars",
+ * so a string like `x<script>.com` passed. That value then flows into
+ * `/api/config`, `/api/domains`, and the web client's domain picker. Writing a
+ * domain is admin-only, but a stored domain should never be able to reach a
+ * renderer as anything other than a hostname.
+ */
+const DOMAIN_PATTERN =
+  /^(?=.{4,253}$)[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$/;
+
+/** Strip the wrappers admins tend to paste (scheme, leading @, trailing path). */
+function normalizeDomain(raw: string): string {
+  return String(raw || '')
+    .trim()
+    .toLowerCase()
+    .replace(/^https?:\/\//i, '')
+    .replace(/^@/, '')
+    .replace(/\/.*$/, '')
+    .trim();
+}
+
 interface ProviderRule {
   name: string;
   category: string;
@@ -732,13 +755,10 @@ export async function handleAdminAction(request: Request, env: AdminEnv): Promis
 
   // ADD DOMAIN
   if (action === 'add_domain') {
-    let domain = (body.domain || '').trim().toLowerCase();
-    // Sanitize: strip http/https, leading @, slashes
-    domain = domain.replace(/^https?:\/\//i, '').replace(/^@/, '').replace(/\/.*$/, '').trim();
-
+    const domain = normalizeDomain(body.domain);
     const isDefault = Boolean(body.is_default);
 
-    if (!domain || !domain.includes('.') || domain.length < 3) {
+    if (!DOMAIN_PATTERN.test(domain)) {
       return new Response(JSON.stringify({ success: false, error: 'Format domain tidak valid' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' },
@@ -791,8 +811,10 @@ export async function handleAdminAction(request: Request, env: AdminEnv): Promis
 
   // DELETE DOMAIN
   if (action === 'delete_domain') {
-    let domain = (body.domain || '').trim().toLowerCase();
-    domain = domain.replace(/^https?:\/\//i, '').replace(/^@/, '').replace(/\/.*$/, '').trim();
+    const domain = normalizeDomain(body.domain);
+    if (!DOMAIN_PATTERN.test(domain)) {
+      return jsonResponse({ success: false, error: 'Format domain tidak valid' }, 400);
+    }
     const ok = await deleteDomain(env.DB, domain);
     return new Response(JSON.stringify({ success: ok, message: `Domain ${domain} dihapus` }), {
       status: 200,
@@ -802,8 +824,10 @@ export async function handleAdminAction(request: Request, env: AdminEnv): Promis
 
   // TOGGLE DOMAIN (MANUAL OVERRIDE ADMIN)
   if (action === 'toggle_domain') {
-    let domain = (body.domain || '').trim().toLowerCase();
-    domain = domain.replace(/^https?:\/\//i, '').replace(/^@/, '').replace(/\/.*$/, '').trim();
+    const domain = normalizeDomain(body.domain);
+    if (!DOMAIN_PATTERN.test(domain)) {
+      return jsonResponse({ success: false, error: 'Format domain tidak valid' }, 400);
+    }
     const isActive = Boolean(body.is_active);
     const ok = await toggleDomainStatus(env.DB, domain, isActive);
     return new Response(JSON.stringify({
@@ -819,8 +843,10 @@ export async function handleAdminAction(request: Request, env: AdminEnv): Promis
 
   // CHECK DOMAIN LIVE / MX (Dual-DoH Resolution + Auto-Activate if MX exists)
   if (action === 'check_domain_live' || action === 'check_domain_mx') {
-    let domain = (body.domain || '').trim().toLowerCase();
-    domain = domain.replace(/^https?:\/\//i, '').replace(/^@/, '').replace(/\/.*$/, '').trim();
+    const domain = normalizeDomain(body.domain);
+    if (!DOMAIN_PATTERN.test(domain)) {
+      return jsonResponse({ success: false, error: 'Format domain tidak valid' }, 400);
+    }
 
     try {
       const mxResult = await resolveDomainMx(domain);

@@ -18,7 +18,22 @@
 // inboxes keep working.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const PBKDF2_ITERATIONS = 150_000;
+// PBKDF2 cost is CPU the Worker pays on EVERY PIN check, so it cannot be picked
+// for security in isolation. Measured in V8: ~2.5 ms at 10k, ~6 ms at 25k,
+// ~24 ms at 100k, ~36 ms at 150k. Cloudflare's Free plan allows roughly 10 ms of
+// CPU per request, so a value in the 150k range would not just be slow — it would
+// make PIN verification fail outright on that plan.
+//
+// 20k keeps the default inside the Free budget with headroom while still being
+// ~20,000x the work of the single SHA-256 round it replaced. On a paid plan you
+// can raise this constant, and hashes already stored keep verifying: the
+// iteration count is embedded in the hash format.
+//
+// Worth being honest about the ceiling: even at 150k, an offline crack of a
+// 4-digit PIN costs about a second of GPU time, and a 6-digit one a couple of
+// minutes. The KDF is the backstop for a leaked database; the online lockout in
+// verifyInboxPinWithLockout() is what actually protects a live inbox.
+const PBKDF2_ITERATIONS = 20_000;
 const PBKDF2_PREFIX = 'pbkdf2';
 const LEGACY_SALT = 'rzero_salt_v1';
 

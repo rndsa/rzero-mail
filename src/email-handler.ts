@@ -9,6 +9,22 @@ export interface EmailHandlerEnv {
 }
 
 /**
+ * Characters we accept in an inbound recipient.
+ *
+ * The local part is fully attacker-controlled: Cloudflare Email Routing accepts
+ * mail for any local part on the domain, so whatever arrives here becomes an
+ * inbox address. That address is rendered by the web client, which means an
+ * exotic local part could carry markup into a page that does not escape it.
+ * The inbox creation API already sanitises its input — this path had no check
+ * at all, so the same class of address could be planted by sending an email.
+ *
+ * Anything outside this set is dropped and logged rather than stored, so a
+ * mailbox is never created under an address the rest of the app does not
+ * expect. The charset covers ordinary addresses, including `+` tagging.
+ */
+const INBOUND_ADDRESS_PATTERN = /^[a-z0-9._%+-]{1,64}@[a-z0-9-]+(\.[a-z0-9-]+)+$/;
+
+/**
  * Handles inbound email via Cloudflare Email Worker for RZero Mail.
  * Called for every email received at any supported domain address.
  */
@@ -18,6 +34,13 @@ export async function handleEmail(
 ): Promise<void> {
   const to = message.to.toLowerCase();
   const from = message.from.toLowerCase();
+
+  if (!INBOUND_ADDRESS_PATTERN.test(to)) {
+    console.warn(
+      `[RZero Mail] Dropped mail to unsupported address: ${to.slice(0, 80)}`
+    );
+    return;
+  }
 
   console.log(`[RZero Mail] Inbound email from=${from} to=${to}`);
 
