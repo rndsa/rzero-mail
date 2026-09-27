@@ -40,13 +40,58 @@ const SECOND = [
 ];
 
 function pick<T>(arr: T[]): T {
-  return arr[Math.floor(Math.random() * arr.length)];
+  return arr[secureRandInt(arr.length)];
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ENTROPY
+//
+// The word lists are published in this repository, so `first + second + nn`
+// was drawn from a space of only 110 * 100 * 91 = 1,001,000 addresses per
+// domain — and an address IS the only credential for an inbox that has not been
+// locked. Anyone could enumerate that space (34 domains -> ~34M candidates) and
+// harvest the OTPs landing in inboxes nobody locked.
+//
+// A random token from a CSPRNG is now appended, so the address is no longer
+// predictable from public inputs. 6 characters over a 33-symbol alphabet is
+// ~1.3 x 10^9, taking the per-domain space to ~10^15.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// No l / 0 / 1 so generated addresses stay easy to read and retype.
+const TOKEN_ALPHABET = 'abcdefghijkmnopqrstuvwxyz23456789';
+const TOKEN_LENGTH = 6;
+
+/** Uniform random integer in [0, max) using the platform CSPRNG. */
+function secureRandInt(max: number): number {
+  const buf = new Uint32Array(1);
+  const limit = Math.floor(0x100000000 / max) * max;
+  let v = 0;
+  do {
+    crypto.getRandomValues(buf);
+    v = buf[0];
+  } while (v >= limit);
+  return v % max;
+}
+
+/** Uniform random token; rejection sampling avoids modulo bias. */
+function randomToken(len: number): string {
+  const max = Math.floor(256 / TOKEN_ALPHABET.length) * TOKEN_ALPHABET.length;
+  let out = '';
+  while (out.length < len) {
+    const bytes = crypto.getRandomValues(new Uint8Array(len));
+    for (const b of bytes) {
+      if (b >= max) continue;
+      out += TOKEN_ALPHABET[b % TOKEN_ALPHABET.length];
+      if (out.length === len) break;
+    }
+  }
+  return out;
 }
 
 function randomLocalPart(): string {
-  const useNumber = Math.random() < 0.8;
-  const suffix = useNumber ? String(Math.floor(Math.random() * 90) + 10) : '';
-  return `${pick(FIRST)}${pick(SECOND)}${suffix}`;
+  const useNumber = secureRandInt(10) < 8;
+  const suffix = useNumber ? String(secureRandInt(90) + 10) : '';
+  return `${pick(FIRST)}${pick(SECOND)}${suffix}-${randomToken(TOKEN_LENGTH)}`;
 }
 
 export async function generateUniqueAddress(

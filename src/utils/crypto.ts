@@ -2,12 +2,122 @@
  * Cryptographic & Extraction Utilities for RZero Mail
  */
 
-export async function hashPin(pin: string, salt: string = 'rzero_salt_v1'): Promise<string> {
+// ─────────────────────────────────────────────────────────────────────────────
+// PIN HASHING
+//
+// A security PIN is only 4-6 digits, so hashing it with a single SHA-256 round
+// and a shared constant salt made every stored hash reversible: one precomputed
+// table of 10^4..10^6 entries cracks every inbox in the database at once, and
+// identical PINs produce identical hashes across inboxes.
+//
+// PINs are now stretched with PBKDF2-HMAC-SHA256 and a unique random salt per
+// inbox, stored as:  pbkdf2$<iterations>$<saltB64>$<hashB64>
+//
+// Hashes written by the previous scheme are still accepted on read and are
+// transparently re-hashed on the next successful unlock, so existing locked
+// inboxes keep working.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const PBKDF2_ITERATIONS = 150_000;
+const PBKDF2_PREFIX = 'pbkdf2';
+const LEGACY_SALT = 'rzero_salt_v1';
+
+function bytesToB64(bytes: Uint8Array): string {
+  let out = '';
+  for (let i = 0; i < bytes.length; i++) out += String.fromCharCode(bytes[i]);
+  return btoa(out);
+}
+
+function b64ToBytes(b64: string): Uint8Array {
+  const raw = atob(b64);
+  const out = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+  return out;
+}
+
+function toHex(buffer: ArrayBuffer): string {
+  const view = new Uint8Array(buffer);
+  let out = '';
+  for (let i = 0; i < view.length; i++) out += view[i].toString(16).padStart(2, '0');
+  return out;
+}
+
+async function pbkdf2(password: string, salt: Uint8Array, iterations: number): Promise<ArrayBuffer> {
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, [
+    'deriveBits',
+  ]);
+  return crypto.subtle.deriveBits(
+    // Cast keeps this portable across the DOM and Workers lib typings, which
+    // disagree about which buffer types satisfy `BufferSource`.
+    { name: 'PBKDF2', hash: 'SHA-256', salt: salt as unknown as BufferSource, iterations },
+    key,
+    256
+  );
+}
+
+/**
+ * Constant-time string comparison. Length mismatch is folded into the result
+ * instead of short-circuiting, so timing does not reveal how many leading
+ * characters matched. Used for PIN digests and shared secrets.
+ */
+export function timingSafeEqualStr(a: string, b: string): boolean {
+  const enc = new TextEncoder();
+  const ab = enc.encode(a);
+  const bb = enc.encode(b);
+  const len = Math.max(ab.length, bb.length);
+  let diff = ab.length ^ bb.length;
+  for (let i = 0; i < len; i++) {
+    diff |= (ab[i] ?? 0) ^ (bb[i] ?? 0);
+  }
+  return diff === 0;
+}
+
+/** Hash a PIN with PBKDF2-HMAC-SHA256 and a fresh random salt. */
+export async function hashPin(pin: string): Promise<string> {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const bits = await pbkdf2(pin.trim(), salt, PBKDF2_ITERATIONS);
+  return `${PBKDF2_PREFIX}$${PBKDF2_ITERATIONS}$${bytesToB64(salt)}$${bytesToB64(new Uint8Array(bits))}`;
+}
+
+/** Previous scheme. Retained only to verify PINs stored before the upgrade. */
+async function hashPinLegacy(pin: string): Promise<string> {
   const encoder = new TextEncoder();
-  const data = encoder.encode(`${salt}:${pin.trim()}`);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+  const data = encoder.encode(`${LEGACY_SALT}:${pin.trim()}`);
+  return toHex(await crypto.subtle.digest('SHA-256', data));
+}
+
+/** True when `stored` was produced by the old single-round SHA-256 scheme. */
+export function isLegacyPinHash(stored: string | null | undefined): boolean {
+  return !!stored && !stored.startsWith(`${PBKDF2_PREFIX}$`);
+}
+
+/**
+ * Verify a candidate PIN against a stored hash. Accepts both the current
+ * PBKDF2 format and the legacy SHA-256 format.
+ */
+export async function verifyPinHash(
+  pin: string,
+  stored: string | null | undefined
+): Promise<boolean> {
+  if (!stored) return false;
+  const candidate = pin.trim();
+
+  if (stored.startsWith(`${PBKDF2_PREFIX}$`)) {
+    const parts = stored.split('$');
+    if (parts.length !== 4) return false;
+    const iterations = Number(parts[1]);
+    if (!Number.isFinite(iterations) || iterations <= 0) return false;
+    try {
+      const salt = b64ToBytes(parts[2]);
+      const bits = await pbkdf2(candidate, salt, iterations);
+      return timingSafeEqualStr(bytesToB64(new Uint8Array(bits)), parts[3]);
+    } catch {
+      return false;
+    }
+  }
+
+  return timingSafeEqualStr(await hashPinLegacy(candidate), stored);
 }
 
 export function parseCookies(cookieHeader: string | null): Record<string, string> {
@@ -25,14 +135,18 @@ export function parseCookies(cookieHeader: string | null): Record<string, string
 
 /**
  * Sign an admin session token using HMAC-SHA256 (Web Crypto API)
+ *
+ * `kind` is embedded in the payload so a short-lived login challenge can never
+ * be mistaken for a full session: verification checks the expected kind.
  */
 export async function signAdminToken(
   user: string,
   secret: string,
-  ttlMs: number = 30 * 24 * 3600 * 1000
+  ttlMs: number = 30 * 24 * 3600 * 1000,
+  kind: 'session' | 'challenge' = 'session'
 ): Promise<string> {
   const exp = Date.now() + ttlMs;
-  const payloadStr = JSON.stringify({ user, exp });
+  const payloadStr = JSON.stringify({ user, exp, kind });
   const payloadB64 = btoa(payloadStr);
 
   const enc = new TextEncoder();
@@ -57,7 +171,7 @@ export async function signAdminToken(
 export async function verifyAdminToken(
   token: string,
   secret: string
-): Promise<{ valid: boolean; user?: string }> {
+): Promise<{ valid: boolean; user?: string; kind?: string }> {
   if (!token || !token.includes('.')) return { valid: false };
   const [payloadB64, sigHex] = token.split('.');
 
@@ -83,7 +197,10 @@ export async function verifyAdminToken(
       return { valid: false };
     }
 
-    return { valid: true, user: payload.user };
+    // Tokens minted before the `kind` field existed were all full sessions.
+    const kind = typeof payload.kind === 'string' ? payload.kind : 'session';
+
+    return { valid: true, user: payload.user, kind };
   } catch {
     return { valid: false };
   }

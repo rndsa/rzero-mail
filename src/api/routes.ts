@@ -16,18 +16,12 @@ import {
   unlinkInboxFromSession,
   isInboxInSession,
   getActiveDomains,
-  getAllDomains,
-  addDomain,
-  deleteDomain,
-  toggleDomainStatus,
-  getTrafficLogs,
-  getTrafficStats,
   getPublicAds,
   recordAdClick,
   insertMessage,
 } from '../db/queries';
 import { generateUniqueAddress } from '../utils/random-address';
-import { extractOtpCode } from '../utils/crypto';
+import { extractOtpCode, timingSafeEqualStr } from '../utils/crypto';
 
 import { antiDdosMiddleware } from '../middleware/anti-ddos';
 
@@ -47,6 +41,30 @@ function getEnvDomains(env: ApiEnv): string[] {
     .filter(Boolean);
 }
 
+/**
+ * Reduce a requested local part to characters that are legal in an email local
+ * part and safe to render. Applied to every create path — previously only the
+ * "name without a domain" branch was sanitised, so a fully qualified address
+ * could carry HTML/attribute metacharacters straight into the inbox list.
+ */
+function sanitizeLocalPart(raw: string): string {
+  return raw.toLowerCase().replace(/[^a-z0-9._-]/g, '').slice(0, 40);
+}
+
+/**
+ * The inbox listing is bounded in BOTH rows (see getMessages) and per-field
+ * size. A single body may be 250 KB and inboxes never expire, so returning every
+ * message in full let an attacker size the response by flooding an inbox.
+ * Full bodies stay available one at a time from
+ * `GET /inboxes/:address/messages/:id`.
+ */
+const LIST_BODY_MAX_CHARS = 10000;
+
+function clampBody(value: string | null | undefined): string {
+  const v = value || '';
+  return v.length > LIST_BODY_MAX_CHARS ? v.slice(0, LIST_BODY_MAX_CHARS) : v;
+}
+
 function getSessionId(c: any): string | null {
   const headerSid = (c.req.header('x-session-id') || c.req.query('session_id') || '').trim();
   if (headerSid) return headerSid;
@@ -64,7 +82,7 @@ function requireSession(c: any): string {
     sid = crypto.randomUUID();
     c.header(
       'Set-Cookie',
-      `rzero_user_session=${encodeURIComponent(sid)}; Path=/; SameSite=Lax; Max-Age=31536000`
+      `rzero_user_session=${encodeURIComponent(sid)}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=31536000`
     );
   }
   return sid;
@@ -107,7 +125,7 @@ api.get('/session', async (c) => {
   await ensureSession(c.env.DB, sid);
   c.header(
     'Set-Cookie',
-    `rzero_user_session=${encodeURIComponent(sid)}; Path=/; SameSite=Lax; Max-Age=31536000`
+    `rzero_user_session=${encodeURIComponent(sid)}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=31536000`
   );
   return c.json({ sessionId: sid });
 });
@@ -165,7 +183,9 @@ const getInboxesHandler = async (c: any) => {
       })),
     });
   } catch (err: any) {
-    return c.json({ error: 'INBOXES_ERROR', detail: String(err?.message || err) }, 500);
+    // Internal error text stays in the logs; clients only need the code.
+    console.error('INBOXES_ERROR', err?.message || err);
+    return c.json({ error: 'INBOXES_ERROR' }, 500);
   }
 };
 
@@ -217,17 +237,17 @@ const createInboxHandler = async (c: any) => {
     if (fullCustomAddress && fullCustomAddress.includes('@')) {
       const parts = fullCustomAddress.split('@');
       const customDomain = parts[1];
-      if (domains.includes(customDomain)) {
-        address = fullCustomAddress;
-      } else {
-        address = `${parts[0]}@${targetDomain}`;
-      }
-    } else if (fullCustomAddress && !fullCustomAddress.includes('@')) {
-      const rawName = fullCustomAddress.toLowerCase().replace(/[^a-z0-9._-]/g, '').slice(0, 40);
+      const rawName = sanitizeLocalPart(parts[0]);
+      if (!rawName) return c.json({ error: 'Invalid inbox name' }, 400);
+      address = domains.includes(customDomain)
+        ? `${rawName}@${customDomain}`
+        : `${rawName}@${targetDomain}`;
+    } else if (fullCustomAddress) {
+      const rawName = sanitizeLocalPart(fullCustomAddress);
       if (!rawName) return c.json({ error: 'Invalid inbox name' }, 400);
       address = `${rawName}@${targetDomain}`;
     } else if (requestedName) {
-      const rawName = requestedName.toLowerCase().replace(/[^a-z0-9._-]/g, '').slice(0, 40);
+      const rawName = sanitizeLocalPart(requestedName);
       if (!rawName) return c.json({ error: 'Invalid inbox name' }, 400);
       address = `${rawName}@${targetDomain}`;
     } else {
@@ -347,7 +367,8 @@ const createInboxHandler = async (c: any) => {
       201
     );
   } catch (err: any) {
-    return c.json({ success: false, error: 'CREATE_INBOX_ERROR', detail: String(err?.message || err) }, 500);
+    console.error('CREATE_INBOX_ERROR', err?.message || err);
+    return c.json({ success: false, error: 'CREATE_INBOX_ERROR' }, 500);
   }
 };
 
@@ -497,10 +518,10 @@ api.get('/inboxes/:address/messages', async (c) => {
       from: m.from_address,
       from_address: m.from_address,
       subject: m.subject,
-      body: m.body,
-      body_text: m.body,
-      bodyHtml: m.body_html,
-      body_html: m.body_html,
+      body: clampBody(m.body),
+      body_text: clampBody(m.body),
+      bodyHtml: clampBody(m.body_html),
+      body_html: clampBody(m.body_html),
       otpCode: m.otp_code,
       otp_code: m.otp_code,
       receivedAt: m.received_at,
@@ -751,13 +772,23 @@ api.get('/otp', getOtpHandler);
 
 // ---- POST /inbound (VPS SMTP Mail Receiver Direct Ingestion) ----
 api.post('/inbound', async (c) => {
-  const authHeader = c.req.header('authorization') || c.req.header('x-inbound-secret') || '';
-  const expectedSecret = c.env.ADMIN_SECRET || 'default_jwt_secret_salt_please_change';
-  if (
-    authHeader !== `Bearer ${expectedSecret}` &&
-    authHeader !== expectedSecret &&
-    !authHeader.includes(expectedSecret)
-  ) {
+  // Exact, constant-time comparison against the configured secret.
+  // The previous check accepted any header CONTAINING the secret (including the
+  // placeholder that ships in this repository) and fell back to that same
+  // placeholder when ADMIN_SECRET was unset — either path let arbitrary callers
+  // inject mail into any inbox.
+  const expectedSecret = String(c.env.ADMIN_SECRET || '').trim();
+  if (!expectedSecret) {
+    return c.json({ error: 'INBOUND_NOT_CONFIGURED' }, 503);
+  }
+  const presented = (
+    c.req.header('authorization') ||
+    c.req.header('x-inbound-secret') ||
+    ''
+  )
+    .replace(/^Bearer\s+/i, '')
+    .trim();
+  if (!presented || !timingSafeEqualStr(presented, expectedSecret)) {
     return c.json({ error: 'UNAUTHORIZED' }, 401);
   }
 

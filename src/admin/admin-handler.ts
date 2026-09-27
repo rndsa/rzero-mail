@@ -13,6 +13,7 @@ import {
 import {
   parseCookies,
   signAdminToken,
+  timingSafeEqualStr,
   verifyAdminToken,
 } from '../utils/crypto';
 
@@ -25,6 +26,68 @@ export interface AdminEnv {
 }
 
 const COOKIE_NAME = 'rzero_admin_session';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Login throttling
+//
+// /admin/action is routed before the /api anti-DDoS middleware, so it needs its
+// own limiter — otherwise the password and the secondary key can be brute
+// forced without any bound.
+// ─────────────────────────────────────────────────────────────────────────────
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const LOGIN_MAX_ATTEMPTS = 8;
+const loginAttempts = new Map<string, { count: number; resetAt: number }>();
+
+function loginThrottled(ip: string): boolean {
+  const rec = loginAttempts.get(ip);
+  if (!rec || rec.resetAt <= Date.now()) return false;
+  return rec.count >= LOGIN_MAX_ATTEMPTS;
+}
+
+function recordLoginFailure(ip: string): void {
+  const now = Date.now();
+  if (loginAttempts.size > 1000) {
+    for (const [k, v] of loginAttempts) {
+      if (v.resetAt <= now) loginAttempts.delete(k);
+    }
+  }
+  const rec = loginAttempts.get(ip);
+  if (!rec || rec.resetAt <= now) {
+    loginAttempts.set(ip, { count: 1, resetAt: now + LOGIN_WINDOW_MS });
+  } else {
+    rec.count += 1;
+  }
+}
+
+function clearLoginFailures(ip: string): void {
+  loginAttempts.delete(ip);
+}
+
+function jsonResponse(body: unknown, status = 200, headers: Record<string, string> = {}): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json', ...headers },
+  });
+}
+
+/**
+ * Sender addresses come straight from the envelope MAIL FROM, so they are fully
+ * attacker-controlled, and the admin panel renders them inside an inline
+ * handler (`copySenderEmail('<address>')`).
+ *
+ * HTML-escaping does not make that safe: the entity is decoded by the HTML
+ * parser before the handler body is compiled as JavaScript, so a crafted
+ * address still closes the string and runs script in the admin origin.
+ *
+ * Reducing the value to characters that can legitimately appear in an address
+ * removes the class entirely — no markup, no quote, no backtick and no
+ * parenthesis can survive, so the value can only ever be data. Classification
+ * patterns (domain keywords) are unaffected because letters, dots and `@`
+ * are preserved.
+ */
+function sanitizeSenderAddress(raw: string): string {
+  return raw.replace(/[^a-z0-9._%+@:-]/gi, '').slice(0, 320);
+}
 
 interface ProviderRule {
   name: string;
@@ -230,7 +293,8 @@ export function buildProviderLeaderboard(rawSenders: { from_address: string; cou
 
     // Clean address (remove display name <email@domain.com>)
     const match = rawAddr.match(/<([^>]+)>/);
-    const cleanAddr = (match ? match[1] : rawAddr).trim().toLowerCase();
+    const cleanAddr = sanitizeSenderAddress((match ? match[1] : rawAddr).trim().toLowerCase());
+    if (!cleanAddr) continue;
     const parts = cleanAddr.split('@');
     const domain = parts.length > 1 ? parts[parts.length - 1] : cleanAddr;
 
@@ -322,10 +386,32 @@ export async function handleAdminAction(request: Request, env: AdminEnv): Promis
   }
 
   const action = body.action;
-  const adminSecret = env.ADMIN_SECRET || 'default_jwt_secret_salt_please_change';
-  const expectedUser = env.ADMIN_USERNAME || 'ren';
-  const expectedPass = env.ADMIN_PASSWORD || 'change_this_admin_password';
-  const expectedV2l = env.ADMIN_V2L_KEY || 'change_this_secondary_key';
+
+  // Fail closed. A missing binding must never fall back to a value that is
+  // published in this repository: doing so makes any deployment that forgets a
+  // `wrangler secret put` trivially compromisable by anyone who can read the
+  // source.
+  const adminSecret = (env.ADMIN_SECRET || '').trim();
+  const expectedUser = (env.ADMIN_USERNAME || '').trim();
+  const expectedPass = (env.ADMIN_PASSWORD || '').trim();
+  const expectedV2l = (env.ADMIN_V2L_KEY || '').trim();
+
+  if (!adminSecret || !expectedUser || !expectedPass || !expectedV2l) {
+    return jsonResponse(
+      {
+        success: false,
+        error: 'ADMIN_NOT_CONFIGURED',
+        message:
+          'Admin auth is not configured. Set ADMIN_USERNAME, ADMIN_PASSWORD, ADMIN_V2L_KEY and ADMIN_SECRET as Worker secrets.',
+      },
+      503
+    );
+  }
+
+  const clientIp =
+    request.headers.get('cf-connecting-ip') ||
+    (request.headers.get('x-forwarded-for') || '').split(',')[0].trim() ||
+    '127.0.0.1';
 
   // ========================================================
   // STEP-BY-STEP AUTHENTICATION:
@@ -334,24 +420,40 @@ export async function handleAdminAction(request: Request, env: AdminEnv): Promis
   // ========================================================
 
   if (action === 'login_step1') {
-    const user = (body.username || '').trim();
-    const pass = (body.password || '').trim();
-
-    if (user !== expectedUser || pass !== expectedPass) {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: 'Username atau password salah',
-        }),
+    if (loginThrottled(clientIp)) {
+      return jsonResponse(
         {
-          status: 401,
-          headers: { 'Content-Type': 'application/json' },
-        }
+          success: false,
+          error: 'TOO_MANY_ATTEMPTS',
+          message: 'Terlalu banyak percobaan login. Coba lagi nanti.',
+        },
+        429,
+        { 'Retry-After': String(Math.ceil(LOGIN_WINDOW_MS / 1000)) }
       );
     }
 
-    // Generate short-lived temp token (valid 5 minutes) for step 2
-    const tempChallenge = await signAdminToken(`challenge:${user}`, adminSecret, 5 * 60 * 1000);
+    const user = (body.username || '').trim();
+    const pass = (body.password || '').trim();
+
+    // Both fields are compared in constant time and evaluated together, so a
+    // wrong username no longer short-circuits the password check (which leaked
+    // valid usernames through response timing).
+    const userOk = timingSafeEqualStr(user, expectedUser);
+    const passOk = timingSafeEqualStr(pass, expectedPass);
+
+    if (!userOk || !passOk) {
+      recordLoginFailure(clientIp);
+      return jsonResponse({ success: false, error: 'Username atau password salah' }, 401);
+    }
+
+    // Generate short-lived temp token (valid 5 minutes) for step 2.
+    // Marked as a challenge so it can never be replayed as a full session.
+    const tempChallenge = await signAdminToken(
+      `challenge:${user}`,
+      adminSecret,
+      5 * 60 * 1000,
+      'challenge'
+    );
     return new Response(
       JSON.stringify({
         success: true,
@@ -368,39 +470,51 @@ export async function handleAdminAction(request: Request, env: AdminEnv): Promis
   }
 
   if (action === 'login_step2') {
+    if (loginThrottled(clientIp)) {
+      return jsonResponse(
+        {
+          success: false,
+          error: 'TOO_MANY_ATTEMPTS',
+          message: 'Terlalu banyak percobaan login. Coba lagi nanti.',
+        },
+        429,
+        { 'Retry-After': String(Math.ceil(LOGIN_WINDOW_MS / 1000)) }
+      );
+    }
+
     const tempToken = (body.temp_token || body.challenge_token || '').trim();
     const v2l = (body.v2l || body.v2l_key || body.key || body['3ds'] || '').trim();
 
     const check = await verifyAdminToken(tempToken, adminSecret);
-    if (!check.valid || !check.user?.startsWith('challenge:')) {
-      return new Response(
-        JSON.stringify({
+    const challengeUser =
+      check.valid && check.kind === 'challenge' ? check.user : undefined;
+
+    if (!challengeUser || !challengeUser.startsWith('challenge:')) {
+      recordLoginFailure(clientIp);
+      return jsonResponse(
+        {
           success: false,
           error: 'Authentication session expired. Please re-enter username & password.',
-        }),
-        {
-          status: 401,
-          headers: { 'Content-Type': 'application/json' },
-        }
+        },
+        401
       );
     }
 
-    if (v2l !== expectedV2l) {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: 'Invalid 3DS / Secondary Security Key',
-        }),
-        {
-          status: 401,
-          headers: { 'Content-Type': 'application/json' },
-        }
-      );
+    if (!timingSafeEqualStr(v2l, expectedV2l)) {
+      recordLoginFailure(clientIp);
+      return jsonResponse({ success: false, error: 'Invalid 3DS / Secondary Security Key' }, 401);
     }
 
-    const realUser = check.user.replace('challenge:', '');
-    const sessionToken = await signAdminToken(realUser, adminSecret);
-    const cookieHeader = `${COOKIE_NAME}=${encodeURIComponent(sessionToken)}; Path=/admin; HttpOnly; SameSite=Strict; Max-Age=2592000`;
+    clearLoginFailures(clientIp);
+
+    const realUser = challengeUser.replace('challenge:', '');
+    const sessionToken = await signAdminToken(
+      realUser,
+      adminSecret,
+      30 * 24 * 3600 * 1000,
+      'session'
+    );
+    const cookieHeader = `${COOKIE_NAME}=${encodeURIComponent(sessionToken)}; Path=/admin; HttpOnly; Secure; SameSite=Strict; Max-Age=2592000`;
 
     return new Response(
       JSON.stringify({
@@ -435,7 +549,11 @@ export async function handleAdminAction(request: Request, env: AdminEnv): Promis
   const sessionToken = cookies[COOKIE_NAME];
 
   const authCheck = await verifyAdminToken(sessionToken, adminSecret);
-  if (!authCheck.valid) {
+
+  // A login challenge carries a valid signature but is only half of the login
+  // flow. Accepting one here let anyone who finished step 1 skip the secondary
+  // key entirely, which defeated the 2FA. Only full sessions are accepted.
+  if (!authCheck.valid || authCheck.kind !== 'session') {
     return new Response(
       JSON.stringify({
         success: false,
