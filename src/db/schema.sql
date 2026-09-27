@@ -73,6 +73,14 @@ CREATE TABLE IF NOT EXISTS pin_attempts (
 
 CREATE INDEX IF NOT EXISTS idx_pin_attempts_address ON pin_attempts(address);
 
+-- Key/value settings. Holds the admin session generation used by
+-- "log out everywhere" (see getAdminSessionEpoch).
+CREATE TABLE IF NOT EXISTS settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL DEFAULT '',
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 -- Ads & Sponsorship Slots (Manual or Adsterra/Script)
 CREATE TABLE IF NOT EXISTS ads (
   slot_name TEXT PRIMARY KEY,

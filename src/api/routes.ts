@@ -81,7 +81,7 @@ function safeDecode(value: string | null | undefined): string {
 }
 
 function getSessionId(c: any): string | null {
-  const headerSid = (c.req.header('x-session-id') || c.req.query('session_id') || '').trim();
+  const headerSid = (c.req.header('x-session-id') || '').trim();
   if (headerSid) return headerSid;
   const cookieHeader = c.req.header('cookie') || '';
   const match = cookieHeader.match(/rzero_user_session=([^;]+)/);
@@ -226,7 +226,6 @@ const createInboxHandler = async (c: any) => {
     const queryDomain = c.req.query('domain');
     const queryName = c.req.query('name') || c.req.query('user');
     const queryAddress = c.req.query('address') || c.req.query('email');
-    const queryPin = c.req.query('pin');
 
     let domains: string[] = [];
     try {
@@ -292,7 +291,7 @@ const createInboxHandler = async (c: any) => {
         }
 
         // If a PIN is supplied in the request, verify it!
-        const providedPin = (body.pin || queryPin) ? String(body.pin || queryPin).trim() : '';
+        const providedPin = body.pin ? String(body.pin).trim() : '';
         if (providedPin) {
           const isValid = await verifyInboxPin(c.env.DB, address, providedPin);
           if (isValid) {
@@ -359,7 +358,7 @@ const createInboxHandler = async (c: any) => {
     await linkInboxToSession(c.env.DB, sid, address);
 
     // If user requested immediate PIN lock
-    const initialPin = body.pin || queryPin;
+    const initialPin = body.pin;
     if (initialPin && typeof initialPin === 'string' && initialPin.trim().length >= 4) {
       await lockInbox(c.env.DB, address, initialPin.trim(), sid);
     }
@@ -421,7 +420,7 @@ const lockInboxHandler = async (c: any) => {
   if (c.req.method === 'POST') {
     try { body = await c.req.json(); } catch {}
   }
-  const pin = (body.pin || c.req.query('pin') || '').trim();
+  const pin = (body.pin || '').trim();
 
   if (!pin || pin.length < 4) {
     return c.json({ error: 'PIN must be at least 4 characters/digits' }, 400);
@@ -452,7 +451,7 @@ const unlockInboxHandler = async (c: any) => {
   if (c.req.method === 'POST') {
     try { body = await c.req.json(); } catch {}
   }
-  const pin = (body.pin || c.req.query('pin') || '').trim();
+  const pin = (body.pin || '').trim();
 
   if (!pin) {
     return c.json({ error: 'PIN is required to unlock' }, 400);
@@ -475,7 +474,7 @@ const verifyPinHandler = async (c: any) => {
   if (c.req.method === 'POST') {
     try { body = await c.req.json(); } catch {}
   }
-  const pin = (body.pin || c.req.query('pin') || '').trim();
+  const pin = (body.pin || '').trim();
 
   const valid = await verifyInboxPin(c.env.DB, address, pin);
   if (!valid) {
@@ -504,7 +503,7 @@ api.get('/inboxes/:address/messages', async (c) => {
   if (inbox.is_locked) {
     const isOwner = sid && inbox.owner_session_id === sid;
     const isLinked = sid ? await isInboxInSession(c.env.DB, sid, address) : false;
-    const providedPin = c.req.header('x-inbox-pin') || c.req.query('pin');
+    const providedPin = c.req.header('x-inbox-pin');
 
     let pinVerified = false;
     if (providedPin) {
@@ -560,7 +559,7 @@ api.get('/inboxes/:address/messages/:id', async (c) => {
   if (inbox.is_locked) {
     const isOwner = sid && inbox.owner_session_id === sid;
     const isLinked = sid ? await isInboxInSession(c.env.DB, sid, address) : false;
-    const providedPin = c.req.header('x-inbox-pin') || c.req.query('pin');
+    const providedPin = c.req.header('x-inbox-pin');
 
     let pinVerified = false;
     if (providedPin) {
@@ -608,7 +607,7 @@ api.get('/messages/:address', async (c) => {
   if (inbox.is_locked) {
     const isOwner = sid && inbox.owner_session_id === sid;
     const isLinked = sid ? await isInboxInSession(c.env.DB, sid, address) : false;
-    const providedPin = c.req.header('x-inbox-pin') || c.req.query('pin');
+    const providedPin = c.req.header('x-inbox-pin');
     let pinVerified = false;
     if (providedPin) {
       pinVerified = await verifyInboxPin(c.env.DB, address, String(providedPin).trim());
@@ -656,7 +655,7 @@ api.get('/messages', async (c) => {
   if (inbox.is_locked) {
     const isOwner = Boolean(sid && inbox.owner_session_id === sid);
     const isLinked = sid ? await isInboxInSession(c.env.DB, sid, address) : false;
-    const providedPin = c.req.header('x-inbox-pin') || c.req.query('pin');
+    const providedPin = c.req.header('x-inbox-pin');
 
     let pinVerified = false;
     if (providedPin) {
@@ -704,7 +703,7 @@ api.delete('/inboxes/:address/messages/:id', async (c) => {
   // Verifikasi kepemilikan session atau header PIN aktif
   const isOwner = Boolean(sid && inbox.owner_session_id === sid);
   const isLinked = sid ? await isInboxInSession(c.env.DB, sid, address) : false;
-  const providedPin = c.req.header('x-inbox-pin') || c.req.query('pin');
+  const providedPin = c.req.header('x-inbox-pin');
   const pinOk = providedPin ? await verifyInboxPin(c.env.DB, address, String(providedPin).trim()) : false;
 
   if (!isOwner && !isLinked && !pinOk) {
@@ -741,7 +740,7 @@ const getOtpHandler = async (c: any) => {
     const sid = getSessionId(c);
     const isOwner = sid && inbox.owner_session_id === sid;
     const isLinked = sid ? await isInboxInSession(c.env.DB, sid, address) : false;
-    const providedPin = c.req.header('x-inbox-pin') || c.req.query('pin');
+    const providedPin = c.req.header('x-inbox-pin');
     let pinVerified = false;
     if (providedPin) {
       pinVerified = await verifyInboxPin(c.env.DB, address, String(providedPin).trim());

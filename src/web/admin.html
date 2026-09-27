@@ -873,7 +873,7 @@
                 <div style="background: #fff; border: var(--border-w) solid var(--border); border-radius: var(--radius-md); box-shadow: var(--shadow-sm); padding: 10px 12px;">
                   <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; flex-wrap: wrap; gap: 6px;">
                     <div style="display: flex; align-items: center; gap: 6px;">
-                      <span class="pill-badge pill-white" style="font-size: 0.7rem; font-weight: 900; padding: 2px 7px;">${l.method}</span>
+                      <span class="pill-badge pill-white" style="font-size: 0.7rem; font-weight: 900; padding: 2px 7px;">${escapeHtml(l.method)}</span>
                       <span style="background: ${statusBg}; border: 1.5px solid var(--border); border-radius: 999px; padding: 2px 8px; font-size: 0.7rem; font-weight: 900; color: #121316;">${statusLabel}</span>
                       <span style="font-family: monospace; font-size: 0.72rem; color: var(--text-muted); font-weight: 700;">${shortTime}</span>
                     </div>
@@ -950,7 +950,7 @@
                 <span class="pill-badge pill-yellow" style="font-size: 0.68rem; font-weight: 900;">${s.count} pesan (${s.percentage}%)</span>
               </div>
             </div>
-            <button class="btn-brutal btn-brutal-mint" onclick="copySenderEmail('${escapeHtml(s.address)}')" style="padding: 4px 10px; font-size: 0.72rem; font-weight: 800; white-space: nowrap; flex-shrink: 0;">
+            <button class="btn-brutal btn-brutal-mint" onclick="copySenderEmail(this.dataset.addr)" data-addr="${escapeHtml(s.address)}" style="padding: 4px 10px; font-size: 0.72rem; font-weight: 800; white-space: nowrap; flex-shrink: 0;">
               📋 SALIN
             </button>
           </div>

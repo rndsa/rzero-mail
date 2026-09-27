@@ -149,19 +149,33 @@ export function parseCookies(cookieHeader: string | null): Record<string, string
 }
 
 /**
+ * Admin session lifetime.
+ *
+ * Was 30 days with no way to revoke, so a leaked cookie stayed valid for a
+ * month. The epoch check in the admin session gate now makes revocation
+ * possible; this shortens the window that revocation has to save you from.
+ */
+export const ADMIN_SESSION_TTL_MS = 7 * 24 * 3600 * 1000;
+
+/**
  * Sign an admin session token using HMAC-SHA256 (Web Crypto API)
  *
  * `kind` is embedded in the payload so a short-lived login challenge can never
  * be mistaken for a full session: verification checks the expected kind.
+ *
+ * `epoch` is the deployment's session generation. Bumping it in the database
+ * invalidates every token signed with the previous value, which is what makes
+ * "log out everywhere" possible without server-side session storage.
  */
 export async function signAdminToken(
   user: string,
   secret: string,
-  ttlMs: number = 30 * 24 * 3600 * 1000,
-  kind: 'session' | 'challenge' = 'session'
+  ttlMs: number = ADMIN_SESSION_TTL_MS,
+  kind: 'session' | 'challenge' = 'session',
+  epoch: number = 0
 ): Promise<string> {
   const exp = Date.now() + ttlMs;
-  const payloadStr = JSON.stringify({ user, exp, kind });
+  const payloadStr = JSON.stringify({ user, exp, kind, epoch });
   const payloadB64 = btoa(payloadStr);
 
   const enc = new TextEncoder();
@@ -186,7 +200,7 @@ export async function signAdminToken(
 export async function verifyAdminToken(
   token: string,
   secret: string
-): Promise<{ valid: boolean; user?: string; kind?: string }> {
+): Promise<{ valid: boolean; user?: string; kind?: string; epoch?: number }> {
   if (!token || !token.includes('.')) return { valid: false };
   const [payloadB64, sigHex] = token.split('.');
 
@@ -214,8 +228,10 @@ export async function verifyAdminToken(
 
     // Tokens minted before the `kind` field existed were all full sessions.
     const kind = typeof payload.kind === 'string' ? payload.kind : 'session';
+    // Tokens minted before the epoch existed belong to generation 0.
+    const epoch = Number.isFinite(payload.epoch) ? Number(payload.epoch) : 0;
 
-    return { valid: true, user: payload.user, kind };
+    return { valid: true, user: payload.user, kind, epoch };
   } catch {
     return { valid: false };
   }

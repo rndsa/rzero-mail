@@ -9,8 +9,11 @@ import {
   getAllAds,
   saveAd,
   getSenderStats,
+  getAdminSessionEpoch,
+  bumpAdminSessionEpoch,
 } from '../db/queries';
 import {
+  ADMIN_SESSION_TTL_MS,
   parseCookies,
   signAdminToken,
   timingSafeEqualStr,
@@ -534,10 +537,11 @@ export async function handleAdminAction(request: Request, env: AdminEnv): Promis
     const sessionToken = await signAdminToken(
       realUser,
       adminSecret,
-      30 * 24 * 3600 * 1000,
-      'session'
+      ADMIN_SESSION_TTL_MS,
+      'session',
+      await getAdminSessionEpoch(env.DB)
     );
-    const cookieHeader = `${COOKIE_NAME}=${encodeURIComponent(sessionToken)}; Path=/admin; HttpOnly; Secure; SameSite=Strict; Max-Age=2592000`;
+    const cookieHeader = `${COOKIE_NAME}=${encodeURIComponent(sessionToken)}; Path=/admin; HttpOnly; Secure; SameSite=Strict; Max-Age=604800`;
 
     return new Response(
       JSON.stringify({
@@ -576,7 +580,16 @@ export async function handleAdminAction(request: Request, env: AdminEnv): Promis
   // A login challenge carries a valid signature but is only half of the login
   // flow. Accepting one here let anyone who finished step 1 skip the secondary
   // key entirely, which defeated the 2FA. Only full sessions are accepted.
-  if (!authCheck.valid || authCheck.kind !== 'session') {
+  //
+  // The epoch check is what makes "log out everywhere" work: bumping the stored
+  // generation instantly invalidates every cookie issued before it, instead of
+  // leaving a stolen cookie valid for its full lifetime.
+  const currentEpoch = await getAdminSessionEpoch(env.DB);
+  if (
+    !authCheck.valid ||
+    authCheck.kind !== 'session' ||
+    (authCheck.epoch ?? 0) !== currentEpoch
+  ) {
     return new Response(
       JSON.stringify({
         success: false,
@@ -596,6 +609,23 @@ export async function handleAdminAction(request: Request, env: AdminEnv): Promis
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     });
+  }
+
+  // REVOKE ALL ADMIN SESSIONS ("log out everywhere")
+  //
+  // Bumps the stored session generation, so every cookie signed before this
+  // moment stops being accepted — including ones on devices you no longer hold.
+  if (action === 'revoke_sessions') {
+    const epoch = await bumpAdminSessionEpoch(env.DB);
+    return jsonResponse(
+      {
+        success: true,
+        epoch,
+        message: 'Semua sesi admin dicabut. Silakan login ulang.',
+      },
+      200,
+      { 'Set-Cookie': `${COOKIE_NAME}=; Path=/admin; HttpOnly; Secure; SameSite=Strict; Max-Age=0` }
+    );
   }
 
   // GET DASHBOARD (ALL-IN-ONE FOR ADMIN CONSOLE)

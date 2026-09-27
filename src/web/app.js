@@ -184,7 +184,7 @@ async function loadDomains() {
       const defaultDom = (activeInbox && activeInbox.address.includes('@')) 
         ? activeInbox.address.split('@')[1] 
         : (availableDomains[Math.floor(Math.random() * availableDomains.length)] || availableDomains[0]);
-      domainSelect.innerHTML = availableDomains.map(d => `<option value="${d}" ${d === defaultDom ? 'selected' : ''}>@${d}</option>`).join('');
+      domainSelect.innerHTML = availableDomains.map(d => `<option value="${escapeHtml(d)}" ${d === defaultDom ? 'selected' : ''}>@${escapeHtml(d)}</option>`).join('');
     }
   } catch (e) {
     availableDomains = ['rzero.me'];
@@ -208,7 +208,7 @@ function updateSwitcherUI() {
   if (allInboxes.length > 1) {
     inboxSwitcherRow.style.display = 'flex';
     inboxSelect.innerHTML = allInboxes.map(ib => 
-      `<option value="${ib.address}" ${activeInbox && activeInbox.address === ib.address ? 'selected' : ''}>${ib.address}</option>`
+      `<option value="${escapeHtml(ib.address)}" ${activeInbox && activeInbox.address === ib.address ? 'selected' : ''}>${escapeHtml(ib.address)}</option>`
     ).join('');
   } else {
     inboxSwitcherRow.style.display = 'none';
@@ -497,8 +497,13 @@ function renderMessages(messages) {
 }
 
 function escapeHtml(str) {
-  if (!str) return '';
-  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 // Auto Refresh Timer

@@ -324,9 +324,17 @@ GET /api/create?domain=yourdomain.com
 ```http
 GET /api/custom/mybot@yourdomain.com
 ```
-*Atau menggunakan query parameters:*
+*Atau menggunakan query parameters (PIN tidak lagi diterima di query — kirim lewat body JSON):*
 ```http
-GET /api/custom?name=mybot&domain=yourdomain.com&pin=123456
+GET /api/custom?name=mybot&domain=yourdomain.com
+```
+
+Untuk langsung mengunci inbox dengan PIN, gunakan method POST dengan body JSON:
+```http
+POST /api/custom
+Content-Type: application/json
+
+{"name": "mybot", "domain": "yourdomain.com", "pin": "123456"}
 ```
 **Response (200 OK):**
 ```json
@@ -361,7 +369,7 @@ GET /api/otp/mybot@yourdomain.com
 ```http
 GET /api/messages?address=mybot@yourdomain.com
 ```
-*Catatan Keamanan: Jika inbox dikunci dengan PIN, sertakan header `x-inbox-pin: 123456` atau query parameter `?pin=123456`. Permintaan tanpa PIN pada inbox terkunci akan otomatis ditolak dengan `HTTP 403 INBOX_LOCKED`.*
+*Catatan Keamanan: Jika inbox dikunci dengan PIN, sertakan header `x-inbox-pin: 123456`. PIN **tidak lagi** diterima lewat query parameter `?pin=` maupun `?session_id=` — nilai sensitif di URL bocor ke access log, header Referer, dan riwayat browser. Identitas sesi dikirim lewat header `x-session-id` (atau cookie). Permintaan tanpa PIN pada inbox terkunci akan ditolak dengan `HTTP 403 INBOX_LOCKED`.*
 
 **Response (200 OK):**
 ```json

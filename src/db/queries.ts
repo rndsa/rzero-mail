@@ -606,7 +606,52 @@ export async function recordAdClick(db: D1Database, slotName: string): Promise<s
 }
 
 // ==========================================
-// 7. AUTO-SCHEMA INITIALIZATION
+// 7. SETTINGS (key/value) & ADMIN SESSION EPOCH
+// ==========================================
+
+export async function getSetting(db: D1Database, key: string): Promise<string | null> {
+  const row = await db
+    .prepare('SELECT value FROM settings WHERE key = ?')
+    .bind(key)
+    .first<{ value: string }>()
+    .catch(() => null);
+  return row?.value ?? null;
+}
+
+export async function setSetting(db: D1Database, key: string, value: string): Promise<void> {
+  await db
+    .prepare(
+      `INSERT INTO settings (key, value, updated_at) VALUES (?, ?, datetime('now'))
+       ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')`
+    )
+    .bind(key, value)
+    .run();
+}
+
+const ADMIN_SESSION_EPOCH_KEY = 'admin_session_epoch';
+
+/**
+ * Current admin session generation (0 when it has never been bumped).
+ *
+ * Every admin session token carries this number. A token whose epoch no longer
+ * matches is refused, which is how "log out everywhere" works without storing
+ * sessions server-side.
+ */
+export async function getAdminSessionEpoch(db: D1Database): Promise<number> {
+  const raw = await getSetting(db, ADMIN_SESSION_EPOCH_KEY);
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
+}
+
+/** Invalidate every admin session issued so far. Returns the new generation. */
+export async function bumpAdminSessionEpoch(db: D1Database): Promise<number> {
+  const next = (await getAdminSessionEpoch(db)) + 1;
+  await setSetting(db, ADMIN_SESSION_EPOCH_KEY, String(next));
+  return next;
+}
+
+// ==========================================
+// 8. AUTO-SCHEMA INITIALIZATION
 // ==========================================
 let schemaInitDone = false;
 
@@ -734,6 +779,11 @@ export async function ensureDatabaseSchema(db: D1Database): Promise<void> {
       db.prepare(`CREATE INDEX IF NOT EXISTS idx_inboxes_locked ON inboxes (is_locked)`),
       db.prepare(`CREATE INDEX IF NOT EXISTS idx_traffic_timestamp ON traffic_logs (timestamp DESC)`),
       db.prepare(`CREATE INDEX IF NOT EXISTS idx_traffic_ip ON traffic_logs (ip)`),
+      db.prepare(`CREATE TABLE IF NOT EXISTS settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL DEFAULT '',
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`),
       db.prepare(`INSERT OR IGNORE INTO ads (slot_name, is_active, ad_type, title, description, banner_url, target_url, cta_text)
         VALUES ('slot_main', 1, 'manual', 'Sewa Slot Iklan Ini (Open Sponsor)', 'Pasang banner produk, bot, atau jasa kamu di sini.', '', 'https://instagram.com/rskl411_', 'Pasang Iklan')`)
     ]);
