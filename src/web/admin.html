@@ -297,9 +297,12 @@
         <div class="tab-pane" id="pane-domains" style="display: none;">
           <div class="admin-card admin-card-yellow">
             <h3 style="font-family: 'Space Grotesk', sans-serif; font-weight: 900; font-size: 1.1rem; margin-bottom: 8px;">Tambah Domain Mail</h3>
-            <p style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); margin-bottom: 12px;">
+            <p style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); margin-bottom: 8px;">
               Domain diverifikasi otomatis via Dual-DoH (Cloudflare + Google DNS). Begitu 3 MX record diarahkan, status otomatis <strong>AKTIF</strong> dan langsung muncul di pilihan user!
             </p>
+            <div style="background: rgba(255, 235, 59, 0.4); border: 1.5px dashed var(--border); border-radius: 4px; padding: 6px 10px; font-size: 0.74rem; font-weight: 800; color: #78350f; margin-bottom: 12px;">
+              ⚠️ <strong>PENTING:</strong> Domain wajib berada di <u>Zone akun Cloudflare yang SAMA</u> dengan akun tempat Worker berjalan agar Cloudflare Email Routing bisa mengalirkan email masuk.
+            </div>
             <div style="display: flex; gap: 8px;">
               <input type="text" id="newDomainInput" class="input-brutal" placeholder="Masukkan nama domain (misal: domain.com)" style="flex: 2;" />
               <button class="btn-brutal btn-brutal-mint" id="btnAddDomain" style="flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px;">

@@ -139,6 +139,10 @@ Pastikan kamu sudah menginstal:
 - Akun gratis di [Cloudflare](https://dash.cloudflare.com/)
 - Minimal 1 domain aktif yang sudah diarahkan Nameserver-nya ke Cloudflare (misal: `domainkamu.com`).
 
+> ⚠️ **ATURAN WAJIB AKUN CLOUDFLARE (SAME-ACCOUNT ZONE):**  
+> Semua domain yang ingin kamu gunakan di RZero Mail (baik domain utama maupun multi-domain tambahan yang dimasukkan lewat panel `/admin`) **WAJIB berada di dalam Zone akun Cloudflare yang SAMA dengan akun Cloudflare tempat Worker di-deploy**.  
+> Fitur Cloudflare Email Routing (`Catch-all -> Send to Worker`) tidak mengizinkan perutean lintas akun (*cross-account*). Jadi pastikan setiap domain baru sudah ditambahkan ke dashboard Cloudflare akun yang sama sebelum memasang 3 MX record dan mendaftarkannya di panel admin.
+
 ---
 
 ### Langkah 2: Clone Repository & Install Dependency
@@ -192,6 +196,8 @@ npx wrangler d1 execute rzero-db --remote --file=./src/db/schema.sql
 
 ### Langkah 5: Setup Cloudflare Email Routing di Dashboard
 Supaya Worker bisa menerima email masuk dari Canva, Discord, dll:
+
+> 💡 **Penting:** Pastikan domain ini berada di **akun Cloudflare yang sama** dengan Worker kamu. Untuk setiap domain baru yang ingin kamu tambahkan ke multi-domain, ulangi langkah setup Email Routing ini pada domain tersebut di akun Cloudflare yang sama.
 
 1. Buka [Cloudflare Dashboard](https://dash.cloudflare.com/) &rarr; Pilih domain kamu.
 2. Klik menu **Email Routing** di sidebar sebelah kiri &rarr; Klik **Get Started / Enable Email Routing**.
