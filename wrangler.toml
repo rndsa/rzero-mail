@@ -21,17 +21,27 @@ database_id = "YOUR_D1_DATABASE_ID_HERE"
 [email]
 action = "process"
 
-# ---- Environment Variables ----
+# ---- Environment Variables (NON-SECRET ONLY) ----
+#
+# Jangan taruh kredensial admin di sini. File ini ikut ter-commit, dan
+# `wrangler deploy` menerbitkan setiap nilai di [vars] sebagai variabel biasa —
+# jadi placeholder yang tertulis di repo berubah menjadi password yang benar-benar
+# berlaku begitu file ini di-deploy apa adanya.
+#
+# Kredensial admin disimpan sebagai Worker secret (terenkripsi, tidak ikut repo):
+#
+#   wrangler secret put ADMIN_USERNAME
+#   wrangler secret put ADMIN_PASSWORD
+#   wrangler secret put ADMIN_V2L_KEY
+#   wrangler secret put ADMIN_SECRET
+#
+# Kode bersifat fail-closed: selama salah satu belum diset, /admin/action menolak
+# dengan HTTP 503 dan pesan yang menyebut env mana yang kurang — bukan diam-diam
+# memakai nilai default.
 [vars]
 APP_NAME = "RZero Mail"
 MAIL_DOMAIN = "yourdomain.com"
 WEB_HOST = "yourdomain.com"
-
-# Admin 3-Step Auth Credentials (Ganti dengan kredensial rahasia kamu)
-ADMIN_USERNAME = "admin"
-ADMIN_PASSWORD = "change_this_admin_password"
-ADMIN_V2L_KEY = "change_this_secondary_key"
-ADMIN_SECRET = "change_this_jwt_hmac_secret_salt"
 
 # ---- Static Assets (Neo-Brutalism Web Frontend) ----
 [assets]

@@ -1,6 +1,6 @@
 {
   "name": "rzero-mail",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "description": "Serverless Disposable Temp Mail & OTP Receiver with Dynamic Domains, Lock Security, and Live Monitor",
   "type": "module",
   "scripts": {
