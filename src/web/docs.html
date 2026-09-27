@@ -672,28 +672,28 @@ https://rzmail.my.id/api/inboxes/user@zallpyx.xyz/messages/msg_canva_user_01
         </div>
       </article>
 
-      <!-- 7. GET /api/inboxes/:address/lock (Kunci Inbox dengan PIN) -->
+      <!-- 7. POST /api/inboxes/:address/lock (Kunci Inbox dengan PIN) -->
       <article class="endpoint-card" id="ep-lock">
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; flex-wrap: wrap; gap: 6px;">
           <div style="display: flex; align-items: center; gap: 8px;">
-            <span class="method-tag method-get">GET</span>
+            <span class="method-tag method-post">POST</span>
             <span style="font-family: 'JetBrains Mono', monospace; font-weight: 900; font-size: 1rem;">/api/inboxes/:address/lock</span>
           </div>
-          <a href="https://rzmail.my.id/api/inboxes/user@zallpyx.xyz/lock?pin=123456" target="_blank" rel="noopener noreferrer" class="pill-badge pill-mint" style="text-decoration: none; font-size: 0.7rem; font-weight: 900; display: inline-flex; align-items: center; gap: 4px;">
-            🚀 Buka di Browser
-          </a>
         </div>
 
         <p style="font-size: 0.84rem; font-weight: 700; color: var(--text); margin-bottom: 10px; line-height: 1.4;">
-          Mengunci inbox dengan 6-digit PIN keamanan (SHA-256). Setelah dikunci, pesan masuk hanya bisa diakses dengan menyertakan parameter <code>?pin=123456</code>.
+          Mengunci inbox dengan 4–6 digit PIN keamanan (SHA-256). Memerlukan header <code>x-session-id</code> dan body JSON <code>{"pin": "123456"}</code>.
         </p>
 
         <div class="code-title-bar">
-          <span class="code-title-label">CONTOH REQUEST URL:</span>
-          <button class="btn-copy-pill" onclick="copySnippet('https://rzmail.my.id/api/inboxes/user@zallpyx.xyz/lock?pin=123456')">📋 Salin URL</button>
+          <span class="code-title-label">CONTOH REQUEST CURL:</span>
+          <button class="btn-copy-pill" onclick="copySnippet('curl -X POST https://rzmail.my.id/api/inboxes/user@zallpyx.xyz/lock -H \"Content-Type: application/json\" -H \"x-session-id: YOUR_SESSION\" -d \'{\"pin\":\"123456\"}\'')">📋 Salin CURL</button>
         </div>
         <div class="code-block">
-https://rzmail.my.id/api/inboxes/user@zallpyx.xyz/lock?pin=123456
+curl -X POST https://rzmail.my.id/api/inboxes/user@zallpyx.xyz/lock \
+  -H "Content-Type: application/json" \
+  -H "x-session-id: YOUR_SESSION" \
+  -d '{"pin": "123456"}'
         </div>
 
         <div class="code-title-bar">
@@ -708,25 +708,26 @@ https://rzmail.my.id/api/inboxes/user@zallpyx.xyz/lock?pin=123456
         </div>
       </article>
 
-      <!-- 8. GET /api/inboxes/:address/delete (Hapus / Lepas Inbox) -->
+      <!-- 8. DELETE /api/inboxes/:address (Hapus / Lepas Inbox) -->
       <article class="endpoint-card" id="ep-delete">
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; flex-wrap: wrap; gap: 6px;">
           <div style="display: flex; align-items: center; gap: 8px;">
-            <span class="method-tag method-get">GET</span>
-            <span style="font-family: 'JetBrains Mono', monospace; font-weight: 900; font-size: 1rem;">/api/inboxes/:address/delete</span>
+            <span class="method-tag method-del">DELETE</span>
+            <span style="font-family: 'JetBrains Mono', monospace; font-weight: 900; font-size: 1rem;">/api/inboxes/:address</span>
           </div>
         </div>
 
         <p style="font-size: 0.84rem; font-weight: 700; color: var(--text); margin-bottom: 10px; line-height: 1.4;">
-          Menghapus atau melepaskan kepemilikan inbox dari sesi kamu.
+          Menghapus atau melepaskan kepemilikan inbox dari sesi kamu menggunakan HTTP DELETE method yang aman (Anti-CSRF).
         </p>
 
         <div class="code-title-bar">
-          <span class="code-title-label">CONTOH REQUEST URL:</span>
-          <button class="btn-copy-pill" onclick="copySnippet('https://rzmail.my.id/api/inboxes/user@zallpyx.xyz/delete')">📋 Salin URL</button>
+          <span class="code-title-label">CONTOH REQUEST CURL:</span>
+          <button class="btn-copy-pill" onclick="copySnippet('curl -X DELETE https://rzmail.my.id/api/inboxes/user@zallpyx.xyz -H \"x-session-id: YOUR_SESSION\"')">📋 Salin CURL</button>
         </div>
         <div class="code-block">
-https://rzmail.my.id/api/inboxes/user@zallpyx.xyz/delete
+curl -X DELETE https://rzmail.my.id/api/inboxes/user@zallpyx.xyz \
+  -H "x-session-id: YOUR_SESSION"
         </div>
 
         <div class="code-title-bar">

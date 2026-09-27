@@ -374,9 +374,8 @@ const deleteInboxHandler = async (c: any) => {
   return c.json({ success: true, message: 'Inbox unlinked from session' });
 };
 api.delete('/inboxes/:address', deleteInboxHandler);
-api.get('/inboxes/:address/delete', deleteInboxHandler);
 
-// ---- POST & GET /api/inboxes/:address/lock (Lock email with PIN) ----
+// ---- POST /api/inboxes/:address/lock (Lock email with PIN) ----
 const lockInboxHandler = async (c: any) => {
   const sid = requireSession(c);
   if (!sid) return c.json({ error: 'Missing x-session-id header' }, 400);
@@ -409,9 +408,8 @@ const lockInboxHandler = async (c: any) => {
   return c.json({ success: true, message: 'Inbox successfully locked with PIN' });
 };
 api.post('/inboxes/:address/lock', lockInboxHandler);
-api.get('/inboxes/:address/lock', lockInboxHandler);
 
-// ---- POST & GET /api/inboxes/:address/unlock (Unlock email with PIN) ----
+// ---- POST /api/inboxes/:address/unlock (Unlock email with PIN) ----
 const unlockInboxHandler = async (c: any) => {
   const address = decodeURIComponent(c.req.param('address') || c.req.query('address') || '').toLowerCase();
   let body: any = {};
@@ -432,9 +430,8 @@ const unlockInboxHandler = async (c: any) => {
   return c.json({ success: true, message: 'Inbox successfully unlocked' });
 };
 api.post('/inboxes/:address/unlock', unlockInboxHandler);
-api.get('/inboxes/:address/unlock', unlockInboxHandler);
 
-// ---- POST & GET /api/inboxes/:address/verify-pin (Verify PIN & link session) ----
+// ---- POST /api/inboxes/:address/verify-pin (Verify PIN & link session) ----
 const verifyPinHandler = async (c: any) => {
   const sid = requireSession(c);
   const address = decodeURIComponent(c.req.param('address') || c.req.query('address') || '').toLowerCase();
@@ -456,7 +453,6 @@ const verifyPinHandler = async (c: any) => {
   return c.json({ success: true, message: 'PIN berhasil diverifikasi!' });
 };
 api.post('/inboxes/:address/verify-pin', verifyPinHandler);
-api.get('/inboxes/:address/verify-pin', verifyPinHandler);
 
 // ---- GET /api/inboxes/:address/messages (Read Messages + Lock Guard) ----
 api.get('/inboxes/:address/messages', async (c) => {

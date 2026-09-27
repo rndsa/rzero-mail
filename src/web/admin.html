@@ -878,7 +878,7 @@
                       <span style="font-family: monospace; font-size: 0.72rem; color: var(--text-muted); font-weight: 700;">${shortTime}</span>
                     </div>
                     <div style="display: flex; align-items: center; gap: 6px;">
-                      <span style="font-family: monospace; font-size: 0.74rem; font-weight: 800; color: var(--text);">${l.ip}</span>
+                      <span style="font-family: monospace; font-size: 0.74rem; font-weight: 800; color: var(--text);">${escapeHtml(l.ip)}</span>
                       ${l.duration_ms ? `<span style="font-size: 0.68rem; color: var(--text-muted); font-weight: 700;">${l.duration_ms}ms</span>` : ''}
                     </div>
                   </div>

@@ -396,12 +396,19 @@ DELETE /api/inboxes/mybot@yourdomain.com/messages/:id
 
 ### 7. Lock Inbox with Security PIN
 ```http
-GET /api/inboxes/mybot@yourdomain.com/lock?pin=123456
+POST /api/inboxes/mybot@yourdomain.com/lock
+Content-Type: application/json
+x-session-id: <session_id>
+
+{
+  "pin": "123456"
+}
 ```
 
 ### 8. Delete / Unlink Inbox
 ```http
-GET /api/inboxes/mybot@yourdomain.com/delete
+DELETE /api/inboxes/mybot@yourdomain.com
+x-session-id: <session_id>
 ```
 
 ### 9. List Active Verified Domains
