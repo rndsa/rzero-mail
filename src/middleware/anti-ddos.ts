@@ -1,5 +1,6 @@
 import type { Context, Next } from 'hono';
 import type { D1Database } from '@cloudflare/workers-types';
+import { timingSafeEqualStr } from '../utils/crypto';
 
 interface RateRecord {
   count: number;
@@ -36,6 +37,24 @@ export function getClientIp(c: Context): string {
 }
 
 /**
+ * Does this request create an inbox?
+ *
+ * Exported so the classification can be unit-tested. It must NOT be keyed off
+ * the HTTP verb: the same handler is reachable over documented GET aliases
+ * (/create, /custom, /new, /inboxes/create, /inboxes/new), so a method-based
+ * check let the 15/min creation budget be spent at the 120/min read budget.
+ */
+export function isCreateRequest(method: string, path: string): boolean {
+  const normalized = path.startsWith('/api/') ? path.slice(4) : path;
+  const suffixes = ['/create', '/custom', '/new', '/inboxes/create', '/inboxes/new'];
+  const isWrite = method === 'POST' || method === 'DELETE';
+  return (
+    suffixes.some((p) => normalized === p || normalized.startsWith(`${p}/`)) ||
+    (isWrite && normalized === '/inboxes')
+  );
+}
+
+/**
  * Silent Anti-DDoS Middleware:
  * - Edge sliding-window rate limiter (strict on creation, relaxed on reads)
  * - Temporary auto-cooldown for abusive IPs
@@ -43,9 +62,25 @@ export function getClientIp(c: Context): string {
  * - D1 asynchronous analytics logging without slowing down user response
  */
 export async function antiDdosMiddleware(c: Context, next: Next): Promise<Response | void> {
-  const authHeader = c.req.header('authorization') || c.req.header('x-inbound-secret') || '';
-  if (authHeader.includes('default_jwt_secret_salt_please_change') || (c.env?.ADMIN_SECRET && authHeader.includes(c.env.ADMIN_SECRET))) {
-    return next();
+  // Trusted server-to-server callers (e.g. the VPS SMTP receiver) skip the
+  // limiter. The credential must match the configured secret exactly.
+  //
+  // This previously accepted a hardcoded string that is published in this
+  // repository, via a substring match — anyone could lift the whole rate limit
+  // with one crafted header. Now: configured secret only, exact match only,
+  // and no bypass at all when the secret is unset.
+  const configuredSecret = String(c.env?.ADMIN_SECRET || '').trim();
+  if (configuredSecret) {
+    const presented = (
+      c.req.header('authorization') ||
+      c.req.header('x-inbound-secret') ||
+      ''
+    )
+      .replace(/^Bearer\s+/i, '')
+      .trim();
+    if (presented && timingSafeEqualStr(presented, configuredSecret)) {
+      return next();
+    }
   }
 
   const ip = getClientIp(c);
@@ -71,8 +106,8 @@ export async function antiDdosMiddleware(c: Context, next: Next): Promise<Respon
 
   // 2. Sliding window rate limit
   const isWrite = method === 'POST' || method === 'DELETE';
-  const isCreateInbox = isWrite && (path.startsWith('/api/inboxes') || path.startsWith('/inboxes'));
-  
+  const isCreateInbox = isCreateRequest(method, path);
+
   // Rate limit thresholds:
   // - Inbox creation: max 15 / min per IP
   // - Other writes (PIN, delete): max 30 / min per IP
@@ -136,6 +171,10 @@ export async function antiDdosMiddleware(c: Context, next: Next): Promise<Respon
   if (db && !path.startsWith('/admin/traffic')) {
     const status = c.res.status || 200;
     const ua = (c.req.header('user-agent') || '').slice(0, 150);
+    // The method is echoed in the admin traffic log. HTTP methods are an open
+    // token set, so constrain what we store to the standard verb shape and
+    // label anything else — a crafted method cannot carry markup into that view.
+    const safeMethod = /^[A-Z]{3,10}$/.test(method) ? method : 'OTHER';
     let logPath = path;
     try {
       logPath = decodeURIComponent(path);
@@ -146,7 +185,7 @@ export async function antiDdosMiddleware(c: Context, next: Next): Promise<Respon
         `INSERT INTO traffic_logs (ip, method, path, status, user_agent, duration_ms)
          VALUES (?, ?, ?, ?, ?, ?)`
       )
-      .bind(ip, method, logPath, status, ua, duration)
+      .bind(ip, safeMethod, logPath, status, ua, duration)
       .run()
       .catch(() => {});
 

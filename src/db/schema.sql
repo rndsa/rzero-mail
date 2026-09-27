@@ -24,9 +24,7 @@ CREATE TABLE IF NOT EXISTS messages (
   FOREIGN KEY (inbox_address) REFERENCES inboxes(address) ON DELETE CASCADE
 );
 
-CREATE INDEX IF NOT EXISTS idx_messages_inbox ON messages(inbox_address);
-CREATE INDEX IF NOT EXISTS idx_messages_received ON messages(inbox_address, received_at DESC);
-CREATE INDEX IF NOT EXISTS idx_messages_otp ON messages(otp_code);
+CREATE INDEX IF NOT EXISTS idx_messages_inbox_received ON messages(inbox_address, received_at DESC);
 
 CREATE TABLE IF NOT EXISTS sessions (
   id TEXT PRIMARY KEY,
@@ -41,7 +39,7 @@ CREATE TABLE IF NOT EXISTS session_inboxes (
   FOREIGN KEY (inbox_address) REFERENCES inboxes(address) ON DELETE CASCADE
 );
 
-CREATE INDEX IF NOT EXISTS idx_session_inboxes_session ON session_inboxes(session_id);
+CREATE INDEX IF NOT EXISTS idx_session_inboxes_lookup ON session_inboxes(session_id, inbox_address);
 
 -- Dynamic Managed Domains
 CREATE TABLE IF NOT EXISTS domains (

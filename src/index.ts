@@ -19,7 +19,46 @@ export interface Env extends ApiEnv, EmailHandlerEnv, AdminEnv {
   ASSETS?: Fetcher;
 }
 
-export default {
+// Baseline security headers applied to every response.
+//
+// The CSP is REPORT-ONLY on purpose: the frontend relies on inline styles and
+// an inline script block, and frames email bodies via `srcdoc`. Enforcing a
+// policy before validating those cases in a real browser would risk breaking
+// the email viewer, so this ships as a starting point to observe violations
+// first. Enforce it once the reports come back clean.
+const SECURITY_HEADERS: Record<string, string> = {
+  'X-Content-Type-Options': 'nosniff',
+  'X-Frame-Options': 'DENY',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+  'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=()',
+  'Strict-Transport-Security': 'max-age=31536000',
+  'Content-Security-Policy-Report-Only': [
+    "default-src 'self'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "object-src 'none'",
+    "frame-ancestors 'none'",
+    "img-src 'self' data: https:",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "font-src 'self' data: https://fonts.gstatic.com",
+    "script-src 'self' 'unsafe-inline'",
+    "connect-src 'self'",
+  ].join('; '),
+};
+
+function withSecurityHeaders(res: Response): Response {
+  const headers = new Headers(res.headers);
+  for (const [k, v] of Object.entries(SECURITY_HEADERS)) {
+    if (!headers.has(k)) headers.set(k, v);
+  }
+  return new Response(res.body, {
+    status: res.status,
+    statusText: res.statusText,
+    headers,
+  });
+}
+
+const worker = {
   /**
    * HTTP fetch handler:
    * - /api/*         → Public User REST API (Hono)
@@ -98,7 +137,7 @@ Sitemap: https://rzmail.my.id/sitemap.xml
 > Platform: Cloudflare Edge Network (Serverless & D1 SQLite)
 
 ## What is RZero Mail?
-RZero Mail (https://rzmail.my.id/) is a high-speed, serverless, disposable temporary email (temp mail) platform and developer API. It offers free temporary and permanent email inboxes across 24 verified active domains powered by Cloudflare Anycast 3-MX Email Routing.
+RZero Mail (https://rzmail.my.id/) is a high-speed, serverless, disposable temporary email (temp mail) platform and developer API. It offers free temporary and permanent email inboxes across its verified active domains (see the domains endpoint for the current list) powered by Cloudflare Anycast 3-MX Email Routing.
 
 ## Key Features & Highlights
 - **100% GET-Based REST API**: Every action (create email, get messages, extract OTP) can be invoked directly via HTTP GET in browser address bars or bot scripts without JSON payloads.
@@ -113,9 +152,9 @@ RZero Mail (https://rzmail.my.id/) is a high-speed, serverless, disposable tempo
 - \`GET https://rzmail.my.id/api/custom/:address\` : Create a custom email (e.g. \`https://rzmail.my.id/api/custom/botku@zallpyx.xyz\`).
 - \`GET https://rzmail.my.id/api/otp/:address\` : Extract the latest verification OTP code directly.
 - \`GET https://rzmail.my.id/api/messages/:address\` : List all incoming emails (clean format).
-- \`GET https://rzmail.my.id/api/domains\` : List all 24 verified active domains.
-- \`GET https://rzmail.my.id/api/inboxes/:address/lock?pin=123456\` : Lock inbox with PIN.
-- \`GET https://rzmail.my.id/api/inboxes/:address/delete\` : Delete/unlink inbox from session.
+- \`GET https://rzmail.my.id/api/domains\` : List every verified active domain.
+- \`POST https://rzmail.my.id/api/inboxes/:address/lock\` : Lock inbox with PIN (JSON body \`{"pin":"123456"}\` + \`x-session-id\` header).
+- \`DELETE https://rzmail.my.id/api/inboxes/:address\` : Delete/unlink inbox from session (\`x-session-id\` header).
 
 ## Search Intent & Viral Keywords
 RZero Mail, RZero, RZeroMail, rzmail.my.id, temp mail, disposable email, email sementara, temp mail otp instan, 10 minute mail, fake email generator, temp mail indonesia, bypass otp, bot telegram temp mail, api temp mail gratis tanpa api key, 34 domain temp mail, email sekali pakai.
@@ -234,4 +273,11 @@ RZero Mail, RZero, RZeroMail, rzmail.my.id, temp mail, disposable email, email s
   async email(message: ForwardableEmailMessage, env: Env, _ctx: ExecutionContext): Promise<void> {
     await handleEmail(message, env);
   },
+};
+
+export default {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    return withSecurityHeaders(await worker.fetch(request, env, ctx));
+  },
+  email: worker.email,
 };

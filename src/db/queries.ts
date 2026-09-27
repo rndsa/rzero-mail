@@ -1,5 +1,5 @@
 import type { D1Database } from '@cloudflare/workers-types';
-import { hashPin } from '../utils/crypto';
+import { hashPin, isLegacyPinHash, verifyPinHash } from '../utils/crypto';
 
 export interface Inbox {
   address: string;
@@ -84,11 +84,15 @@ export async function lockInbox(
   sessionId: string
 ): Promise<boolean> {
   const pinHash = await hashPin(pin);
+  // Ownership guard: an inbox that already has an owner may only be (re)locked
+  // by that owner. Inboxes with no owner yet (e.g. auto-created by inbound
+  // mail) remain first-come, which is the intended flow for disposable inboxes.
   const res = await db
     .prepare(
       `UPDATE inboxes
        SET is_locked = 1, lock_pin_hash = ?, owner_session_id = ?, locked_at = datetime('now')
-       WHERE address = ? AND (is_locked = 0 OR owner_session_id = ?)`
+       WHERE address = ?
+         AND (owner_session_id = ? OR (is_locked = 0 AND owner_session_id IS NULL))`
     )
     .bind(pinHash, sessionId, address, sessionId)
     .run();
@@ -100,14 +104,23 @@ export async function unlockInbox(
   address: string,
   pin: string
 ): Promise<boolean> {
-  const pinHash = await hashPin(pin);
+  const inbox = await db
+    .prepare('SELECT is_locked, lock_pin_hash FROM inboxes WHERE address = ?')
+    .bind(address)
+    .first<{ is_locked: number; lock_pin_hash: string | null }>();
+
+  if (!inbox || !inbox.is_locked || !inbox.lock_pin_hash) return false;
+  if (!(await verifyPinHash(pin, inbox.lock_pin_hash))) return false;
+
+  // Re-bind the exact hash we verified so a concurrent re-lock cannot be
+  // clobbered by a stale verification.
   const res = await db
     .prepare(
       `UPDATE inboxes
        SET is_locked = 0, lock_pin_hash = NULL, locked_at = NULL
-       WHERE address = ? AND lock_pin_hash = ?`
+       WHERE address = ? AND is_locked = 1 AND lock_pin_hash = ?`
     )
-    .bind(address, pinHash)
+    .bind(address, inbox.lock_pin_hash)
     .run();
   return (res.meta.changes || 0) > 0;
 }
@@ -134,15 +147,31 @@ export async function verifyInboxPinWithLockout(
   }
 
   // 2. Evaluasi kecocokan PIN
-  const pinHash = await hashPin(candidatePin);
   const inbox = await db
-    .prepare('SELECT 1 FROM inboxes WHERE address = ? AND lock_pin_hash = ?')
-    .bind(address, pinHash)
-    .first();
+    .prepare('SELECT lock_pin_hash FROM inboxes WHERE address = ?')
+    .bind(address)
+    .first<{ lock_pin_hash: string | null }>();
 
-  if (inbox) {
+  const matches = await verifyPinHash(candidatePin, inbox?.lock_pin_hash ?? null);
+
+  if (matches) {
     // Sukses: Reset riwayat percobaan
     await db.prepare('DELETE FROM pin_attempts WHERE address = ?').bind(address).run().catch(() => {});
+
+    // Transparently upgrade hashes written by the legacy SHA-256 scheme.
+    const storedHash = inbox?.lock_pin_hash ?? null;
+    if (isLegacyPinHash(storedHash)) {
+      try {
+        const upgraded = await hashPin(candidatePin);
+        await db
+          .prepare('UPDATE inboxes SET lock_pin_hash = ? WHERE address = ? AND lock_pin_hash = ?')
+          .bind(upgraded, address, storedHash)
+          .run();
+      } catch {
+        // Best-effort: the legacy hash stays valid if the upgrade fails.
+      }
+    }
+
     return { success: true, locked: false };
   } else {
     // Gagal: Tingkatkan counter dan tentukan lockout jika >= 5 percobaan
@@ -195,15 +224,32 @@ export async function getSessionInboxes(db: D1Database, sessionId: string): Prom
 // 2. MESSAGES & OTP
 // ==========================================
 
-export async function getMessages(db: D1Database, inboxAddress: string): Promise<Message[]> {
+/**
+ * Messages for one inbox, newest first.
+ *
+ * A hard `LIMIT` is required, not a nicety: inboxes never expire, nothing is
+ * pruned, and a single message body may be 250 KB. Without a bound, flooding one
+ * inbox was enough to make every read pull an unbounded result set and blow the
+ * Worker memory limit — and the address is guessable, so the flood could be
+ * aimed at anyone.
+ */
+export const MESSAGES_MAX_LIMIT = 200;
+
+export async function getMessages(
+  db: D1Database,
+  inboxAddress: string,
+  limit: number = MESSAGES_MAX_LIMIT
+): Promise<Message[]> {
+  const bounded = Math.min(Math.max(Math.floor(Number(limit) || MESSAGES_MAX_LIMIT), 1), MESSAGES_MAX_LIMIT);
   return db
     .prepare(
       `SELECT id, inbox_address, from_address, subject, body, body_html, otp_code, received_at
        FROM messages
        WHERE inbox_address = ?
-       ORDER BY received_at DESC`
+       ORDER BY received_at DESC
+       LIMIT ?`
     )
-    .bind(inboxAddress)
+    .bind(inboxAddress, bounded)
     .all<Message>()
     .then((r) => r.results);
 }
@@ -244,8 +290,8 @@ export async function insertMessage(
     .bind(
       msg.id,
       msg.inbox_address,
-      msg.from_address,
-      msg.subject,
+      (msg.from_address || '').slice(0, 320),
+      (msg.subject || '').slice(0, 1000),
       msg.body,
       msg.body_html || '',
       msg.otp_code || null
@@ -412,7 +458,8 @@ export async function getSenderStats(db: D1Database): Promise<SenderStatItem[]> 
          FROM messages
          WHERE from_address IS NOT NULL AND from_address != ''
          GROUP BY from_address
-         ORDER BY count DESC`
+         ORDER BY count DESC
+         LIMIT 500`
       )
       .all<SenderStatItem>();
     return res.results || [];
@@ -509,6 +556,29 @@ export async function recordAdClick(db: D1Database, slotName: string): Promise<s
 // ==========================================
 let schemaInitDone = false;
 
+/**
+ * Retire a table whose shape no longer matches the current schema.
+ *
+ * This used to `DROP`, which destroyed the previous contents outright whenever
+ * the auto-migration misfired (a partially applied deploy, a transient
+ * `PRAGMA` failure). Renaming keeps the data recoverable and still frees the
+ * expected name for the fresh table — delete the `*_legacy_*` tables manually
+ * once you are satisfied the migration was correct.
+ */
+async function retireLegacyTable(db: D1Database, name: string): Promise<void> {
+  const stamp = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14);
+  const exists = await db
+    .prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?")
+    .bind(name)
+    .first()
+    .catch(() => null);
+  if (!exists) return;
+  await db
+    .prepare(`ALTER TABLE "${name}" RENAME TO "${name}_legacy_${stamp}"`)
+    .run()
+    .catch(() => {});
+}
+
 export async function ensureDatabaseSchema(db: D1Database): Promise<void> {
   if (schemaInitDone || !db) return;
   try {
@@ -516,24 +586,23 @@ export async function ensureDatabaseSchema(db: D1Database): Promise<void> {
     const tableInfo = await db.prepare("PRAGMA table_info(inboxes)").all<{ name: string }>().catch(() => ({ results: [] as { name: string }[] }));
     const cols = (tableInfo.results || []).map((r: any) => r.name);
     if (cols.length > 0 && (!cols.includes('address') || !cols.includes('lock_pin_hash'))) {
-      // Incompatible old schema detected! Drop obsolete tables to migrate cleanly
-      await db.batch([
-        db.prepare('DROP TABLE IF EXISTS session_inboxes'),
-        db.prepare('DROP TABLE IF EXISTS messages'),
-        db.prepare('DROP TABLE IF EXISTS inboxes'),
-      ]);
+      // Incompatible legacy schema. Retire instead of dropping so the previous
+      // contents stay recoverable.
+      for (const t of ['session_inboxes', 'messages', 'inboxes']) {
+        await retireLegacyTable(db, t);
+      }
     }
 
     const siInfo = await db.prepare("PRAGMA table_info(session_inboxes)").all<{ name: string }>().catch(() => ({ results: [] as { name: string }[] }));
     const siCols = (siInfo.results || []).map((r: any) => r.name);
     if (siCols.length > 0 && !siCols.includes('inbox_address')) {
-      await db.prepare('DROP TABLE IF EXISTS session_inboxes').run();
+      await retireLegacyTable(db, 'session_inboxes');
     }
 
     const msgInfo = await db.prepare("PRAGMA table_info(messages)").all<{ name: string }>().catch(() => ({ results: [] as { name: string }[] }));
     const msgCols = (msgInfo.results || []).map((r: any) => r.name);
     if (msgCols.length > 0 && !msgCols.includes('inbox_address')) {
-      await db.prepare('DROP TABLE IF EXISTS messages').run();
+      await retireLegacyTable(db, 'messages');
     }
 
     await db.batch([
@@ -606,6 +675,11 @@ export async function ensureDatabaseSchema(db: D1Database): Promise<void> {
       db.prepare(`CREATE INDEX IF NOT EXISTS idx_inboxes_owner ON inboxes (owner_session_id)`),
       db.prepare(`CREATE INDEX IF NOT EXISTS idx_session_inboxes_lookup ON session_inboxes (session_id, inbox_address)`),
       db.prepare(`CREATE INDEX IF NOT EXISTS idx_pin_attempts_address ON pin_attempts (address)`),
+      // Kept in sync with src/db/schema.sql so `db:migrate` and the runtime
+      // auto-migration converge on the same index set.
+      db.prepare(`CREATE INDEX IF NOT EXISTS idx_inboxes_locked ON inboxes (is_locked)`),
+      db.prepare(`CREATE INDEX IF NOT EXISTS idx_traffic_timestamp ON traffic_logs (timestamp DESC)`),
+      db.prepare(`CREATE INDEX IF NOT EXISTS idx_traffic_ip ON traffic_logs (ip)`),
       db.prepare(`INSERT OR IGNORE INTO ads (slot_name, is_active, ad_type, title, description, banner_url, target_url, cta_text)
         VALUES ('slot_main', 1, 'manual', 'Sewa Slot Iklan Ini (Open Sponsor)', 'Pasang banner produk, bot, atau jasa kamu di sini.', '', 'https://instagram.com/rskl411_', 'Pasang Iklan')`)
     ]);
