@@ -443,6 +443,30 @@ Fitur admin mencakup:
 
 ---
 
+## 🛡️ Security Audit & Hardening Changelog (v2.1.4)
+
+Project ini telah diaudit dan diperkuat terhadap vektor serangan edge modern, session hijacking, dan injection:
+
+1. **Inbox Ownership Guard (Anti-Takeover)**:
+   - Endpoint `POST /api/inboxes` dan `/api/custom` secara ketat memverifikasi kepemilikan sesi (`owner_session_id`).
+   - Alamat email aktif milik sesi lain ditolak dengan status HTTP 409 `INBOX_TAKEN` dan tidak dapat diklaim tanpa PIN resmi pemilik.
+2. **Third-Party Script Ad Isolation (Zero-Trust Sandbox)**:
+   - Skrip iklan dinamis pihak ketiga (A-ADS, dsb.) diisolasi ke dalam sub-frame `<iframe sandbox="allow-scripts">` tanpa atribut `allow-same-origin`.
+   - Mengeliminasi risiko Stored XSS dari eksekusi skrip iklan di konteks dokumen utama; skrip iklan tidak memiliki akses ke cookie, session token, maupun API internal.
+3. **Email Content Strict Sandbox Boundary**:
+   - Iframe pratinjau pesan email (`modalIframe`) mencabut izin `allow-same-origin`, memutus akses dokumen HTML email dari origin domain utama (`rzmail.my.id`).
+   - Tautan email dipaksa terbuka di tab baru (`target="_blank"` dengan `rel="noopener noreferrer"`).
+4. **Linear ReDoS Stripper Engine**:
+   - Pembersih markup HTML pada ekstraksi OTP diganti dari regex bertingkat ke pemindai linear $O(n)$ berbasis indeks (`indexOf`) dengan batas aman 100.000 karakter.
+   - Kebal terhadap serangan *Regular Expression Denial of Service* (ReDoS) / *catastrophic backtracking* pada payload email berukuran besar.
+5. **URL Credential Stripping (CWE-598 Mitigation)**:
+   - Parameter sensitif (`?pin=` dan `?session_id=`) dicabut dari query string URL pada seluruh endpoint.
+   - Autentikasi dialihkan ke header standar (`x-inbox-pin`, `x-session-id`) untuk mencegah kebocoran kredensial di log server dan riwayat browser.
+6. **Triple-Lock Admin Session Revocation**:
+   - Cookie sesi admin terikat pada `epoch` generasi di database D1. Pemanggilan aksi admin `revoke_sessions` menaikkan epoch dan secara instan menganulir seluruh sesi admin aktif.
+
+---
+
 ## 📄 License & Credits
 
 - **License**: MIT License
