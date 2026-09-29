@@ -336,19 +336,31 @@ const createInboxHandler = async (c: any) => {
         );
       }
 
-      // If existing is not locked: link directly to session
+      // If existing is not locked: verify ownership before linking
+      if (existing.owner_session_id && existing.owner_session_id !== sid) {
+        return c.json(
+          {
+            success: false,
+            error: 'INBOX_TAKEN',
+            message: 'Email ini sedang aktif digunakan oleh pengguna lain. Silakan pilih alamat baru.',
+            address,
+          },
+          409
+        );
+      }
+
       await linkInboxToSession(c.env.DB, sid, address);
       return c.json({
         success: true,
         inbox: {
           address,
           isLocked: false,
-          isOwner: existing.owner_session_id === sid,
+          isOwner: true,
           created: false,
         },
         address,
         isLocked: false,
-        isOwner: existing.owner_session_id === sid,
+        isOwner: true,
         created: false,
       });
     }

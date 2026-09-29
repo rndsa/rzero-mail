@@ -135,12 +135,26 @@ function showToast(msg, type = 'info') {
   }, 2500);
 }
 
+function stripHtmlTagsLinear(html) {
+  if (!html) return '';
+  let out = '';
+  let i = 0;
+  const len = Math.min(html.length, 100000);
+  while (i < len) {
+    const lt = html.indexOf('<', i);
+    if (lt === -1) { out += html.slice(i, len); break; }
+    out += html.slice(i, lt);
+    const gt = html.indexOf('>', lt);
+    if (gt === -1) break;
+    out += ' ';
+    i = gt + 1;
+  }
+  return out;
+}
+
 // Extract OTP Code helper (Strict - never false trigger on dimensions/years/addresses)
 function extractOtp(text, subject = '') {
-  const combined = (subject + ' ' + (text || ''))
-    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, ' ')
-    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, ' ')
-    .replace(/<[^>]+>/g, ' ')
+  const combined = stripHtmlTagsLinear(subject + ' ' + (text || ''))
     .replace(/https?:\/\/\S+/gi, ' ')
     .replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, ' ');
 
@@ -640,14 +654,15 @@ async function loadAds() {
       }
 
       if (ad.ad_type === 'script' && ad.script_code) {
-        content.innerHTML = ad.script_code;
-        const scripts = content.querySelectorAll('script');
-        scripts.forEach(oldScript => {
-          const newScript = document.createElement('script');
-          Array.from(oldScript.attributes).forEach(attr => newScript.setAttribute(attr.name, attr.value));
-          newScript.appendChild(document.createTextNode(oldScript.innerHTML));
-          oldScript.parentNode.replaceChild(newScript, oldScript);
-        });
+        content.replaceChildren();
+        const frame = document.createElement('iframe');
+        frame.setAttribute('sandbox', 'allow-scripts');
+        frame.setAttribute('loading', 'lazy');
+        frame.style.width = '100%';
+        frame.style.border = 'none';
+        frame.style.minHeight = '90px';
+        frame.srcdoc = '<!doctype html><html><head><meta charset="utf-8"><base target="_blank"><style>body{margin:0;padding:0;overflow:hidden;background:transparent;display:flex;justify-content:center;align-items:center;}</style></head><body>' + ad.script_code + '</body></html>';
+        content.appendChild(frame);
         wrapper.style.display = 'block';
       } else {
         const thumbHtml = ad.banner_url

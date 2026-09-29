@@ -237,12 +237,26 @@ export async function verifyAdminToken(
   }
 }
 
+function stripHtmlTags(html: string): string {
+  if (!html) return '';
+  let out = '';
+  let i = 0;
+  const len = Math.min(html.length, 100000);
+  while (i < len) {
+    const lt = html.indexOf('<', i);
+    if (lt === -1) { out += html.slice(i, len); break; }
+    out += html.slice(i, lt);
+    const gt = html.indexOf('>', lt);
+    if (gt === -1) break;
+    out += ' ';
+    i = gt + 1;
+  }
+  return out;
+}
+
 export function extractOtpCode(subject: string, text: string, html: string = ''): string | null {
-  // Strip HTML tags and entities
-  const cleanHtml = (html || '')
-    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, ' ')
-    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, ' ')
-    .replace(/<[^>]+>/g, ' ')
+  // Strip HTML tags and entities without catastrophic backtracking
+  const cleanHtml = stripHtmlTags(html || '')
     .replace(/&[a-z0-9#]+;/gi, ' ');
 
   const content = `${subject}\n${text}\n${cleanHtml}`
